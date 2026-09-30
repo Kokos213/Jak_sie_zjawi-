@@ -38,7 +38,11 @@ async function supabase(context, path, options = {}) {
   const headers = new Headers(options.headers || {});
   headers.set("apikey", values.SUPABASE_ANON_KEY);
   headers.set("content-type", "application/json");
-  const response = await fetch(`${values.SUPABASE_URL.replace(/\/$/, "")}${path}`, { ...options, headers });
+  const response = await fetch(`${values.SUPABASE_URL.replace(/\/$/, "")}${path}`, {
+    ...options,
+    headers,
+    signal: options.signal || AbortSignal.timeout(15000)
+  });
   const body = await response.json().catch(() => ({}));
   return { response, body };
 }

@@ -63,7 +63,7 @@ Render pozostaje działającą ścieżką i nie jest usuwany. Nowa ścieżka zac
    - `https://TWOJ-PROJEKT.pages.dev`
    - lokalnie `http://localhost:8788` (dla `wrangler pages dev`)
 3. W Cloudflare Pages ustaw build:
-   - **Build command:** `./build_pages.sh`
+   - **Build command:** `sh ./build_pages.sh`
    - **Output directory:** `.`
    - **Production branch:** `main`
 4. W Pages → Settings → Environment variables dodaj jako **encrypted runtime variables** dla Preview i Production:
