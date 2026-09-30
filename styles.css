@@ -96,7 +96,6 @@ h2 { margin: 0; font-size: 24px; }
 .weather-detail { color: var(--muted); font-size: 11px; }
 .weather-detail strong { display: block; margin-top: 4px; color: var(--ink); font-size: 13px; }
 .weather-detail strong span { color: var(--teal-dark); font-size: 11px; }
-.demo-badge { padding: 5px 8px; border-radius: 5px; color: #b44a38; background: #fff0ec; font-size: 9px; font-weight: 700; letter-spacing: 1px; }
 .next-train-content { display: flex; align-items: end; justify-content: space-between; height: 163px; }
 .next-time { font: 600 54px/1 "Space Grotesk"; letter-spacing: -.08em; }
 .next-time-label { color: var(--muted); font-size: 12px; }
@@ -117,6 +116,9 @@ h2 { margin: 0; font-size: 24px; }
 .forecast-item:first-child .forecast-rain { color: var(--forecast-active-rain); }
 .weather-error { margin: -4px 0 12px; color: var(--status-delay-color); font-size: 11px; }
 .departures-section { padding: 0 0 20px; }
+.transport-tabs { display: flex; gap: 16px; margin: 0 0 10px; }
+.transport-tab { padding: 0 0 7px; border: 0; border-bottom: 2px solid transparent; color: var(--muted); background: transparent; font: 600 13px "DM Sans"; cursor: pointer; }
+.transport-tab.active { border-color: var(--teal); color: var(--teal-dark); }
 .departures-heading { margin-bottom: 18px; }
 .route-pickers { display: flex; align-items: end; gap: 14px; }
 .route-picker { display: grid; gap: 7px; }
@@ -149,6 +151,14 @@ td { padding: 16px 18px; border-top: 1px solid var(--line); font-size: 13px; }
 .status.on-time { color: var(--status-on-color); background: var(--status-on-bg); }
 .status.delayed { color: var(--status-delay-color); background: var(--status-delay-bg); }
 .empty-state { padding: 30px; color: var(--muted); text-align: center; font-size: 13px; }
+.later-button { width: 100%; padding: 13px; border: 0; border-top: 1px solid var(--line); color: var(--teal-dark); background: var(--surface-alt); font: 600 12px "DM Sans"; cursor: pointer; }
+.checkin-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; padding: 24px 28px; }
+.checkin-copy, .checkin-status { color: var(--muted); font-size: 12px; }
+.checkin-button { margin: 0; width: auto; }
+.checkin-actions { display: grid; align-content: center; gap: 10px; }
+.leaderboard { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 24px; margin: 0; padding: 16px 0 0 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.leaderboard li::marker { color: var(--teal); font-weight: 700; }
+.leaderboard strong { color: var(--ink); }
 .footer { display: flex; gap: 9px; margin-top: 35px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
 .footer-separator { color: var(--coral); }
 .toast { position: fixed; right: 24px; bottom: 24px; padding: 13px 17px; border-radius: 8px; color: white; background: var(--navy); box-shadow: var(--shadow); font-size: 12px; opacity: 0; transform: translateY(10px); transition: .25s; pointer-events: none; }
@@ -178,6 +188,7 @@ td { padding: 16px 18px; border-top: 1px solid var(--line); font-size: 13px; }
   .account-button { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hero { align-items: start; flex-direction: column; gap: 25px; padding: 42px 0 32px; }.date-card { padding: 0 0 0 14px; text-align: left; }
   .dashboard-grid { grid-template-columns: 1fr; }.weather-card, .next-train-card { padding: 23px; }
+  .checkin-section { grid-template-columns: 1fr; padding: 22px; }.leaderboard { grid-template-columns: 1fr; }
   .forecast-section { padding: 38px 0 40px; overflow: hidden; }.forecast-strip { display: flex; width: max-content; }.forecast-item { width: 95px; }
   .section-heading { align-items: start; gap: 14px; flex-direction: column; }.departures-heading { flex-direction: row; align-items: end; }
   .route-pickers { width: 100%; align-items: stretch; flex-direction: column; gap: 16px; }

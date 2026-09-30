@@ -100,6 +100,14 @@ Jeśli signup zwróci `400`, żądanie dotarło do Supabase, ale zostało odrzuc
 
 Cookies Supabase sesji są ustawiane przez Functions jako `HttpOnly; SameSite=None; Secure`, a requesty frontendowe używają `credentials: include`. Ponieważ API i UI są na tym samym originie Pages, nie jest potrzebny publiczny CORS. Nie wkładaj sekretów do `wrangler.toml`, `config.js`, GitHub ani repozytorium.
 
+## Transport i codzienna obecność
+
+Zakładka **Autobusy** korzysta z tej samej listy miast co kolej, dodatkowo obejmuje Kębłowo i przystanki pogrupowane miasto → przystanek. Gdy nie ma podłączonego źródła przewoźnika, interfejs mówi wprost o orientacyjnych danych testowych; nie są one prezentowane jako aktualny rozkład. Pociągi mają przycisk **Pokaż późniejsze odjazdy** z limitem kolejnych pozycji oraz stanami ładowania, błędu i pustej listy.
+
+### SQL dla check-inów i rankingu
+
+W Supabase otwórz **SQL Editor**, wklej i wykonaj cały plik `supabase/migrations/001_daily_checkins.sql`, a następnie wykonaj redeploy Functions. Migracja tworzy `profiles`, `daily_checkins`, unikalność `(user_id, checkin_date)`, RLS, trigger profilu oraz backfill istniejących użytkowników. Endpointy `GET/POST /api/checkins` wyznaczają datę po stronie serwera w `Europe/Warsaw`, pobierają usera z sesji Supabase i ignorują `user_id`/datę z klienta. Ranking ograniczony jest do top 10 danego dnia, a brak poprzedniego dnia zeruje pass przy następnym meldunku.
+
 Cloudflare Pages nie wykonuje deployu z tego środowiska, bo wymaga dostępu do konta Cloudflare/GitHub. Jedyny ręczny krok: podłącz repozytorium w Pages, ustaw powyższe wartości i po poznaniu domeny Pages wpisz ją do `SKM_ALLOWED_ORIGINS` w Render.
 
 ## Trwałość bazy

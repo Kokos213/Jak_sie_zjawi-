@@ -86,6 +86,16 @@ const DEMO_DEPARTURES = {
   reda: [["Gdańsk Główny", "1", 7, 0], ["Gdynia Główna", "2", 14, 3], ["Wejherowo", "1", 19, 0], ["Rumia", "2", 27, 0]],
   luzino: [["Gdańsk Główny", "2", 9, 0], ["Gdynia Główna", "1", 18, 3], ["Wejherowo", "2", 24, 0], ["Reda", "1", 32, 0]]
 };
+const BUS_NETWORK = {
+  gdansk: { name: "Gdańsk", stations: [{ id: "gdansk-dworzec", name: "Dworzec Główny" }, { id: "gdansk-wrzeszcz-przystanek", name: "Wrzeszcz PKP" }, { id: "gdansk-oliwa-przystanek", name: "Oliwa PKP" }] },
+  sopot: { name: "Sopot", stations: [{ id: "sopot-centrum", name: "Sopot Centrum" }, { id: "sopot-kamienny", name: "Kamienny Potok" }] },
+  gdynia: { name: "Gdynia", stations: [{ id: "gdynia-dworzec", name: "Dworzec Główny" }, { id: "gdynia-chylonia-przystanek", name: "Chylonia Centrum" }] },
+  rumia: { name: "Rumia", stations: [{ id: "rumia-dworzec", name: "Rumia Dworzec" }, { id: "rumia-janowo-przystanek", name: "Janowo" }] },
+  reda: { name: "Reda", stations: [{ id: "reda-dworzec", name: "Reda Dworzec" }] },
+  wejherowo: { name: "Wejherowo", stations: [{ id: "wejherowo-dworzec", name: "Wejherowo Dworzec" }, { id: "wejherowo-nanice-przystanek", name: "Nanice" }] },
+  luzino: { name: "Luzino", stations: [{ id: "luzino-dworzec", name: "Luzino Dworzec" }] },
+  keblowo: { name: "Kębłowo", stations: [{ id: "keblowo-centrum", name: "Kębłowo Centrum" }, { id: "keblowo-szkola", name: "Kębłowo Szkoła" }, { id: "keblowo-dworzec", name: "Kębłowo Dworzec" }] }
+};
 
 const weatherLabels = { 0: ["Bezchmurnie", "☀️"], 1: ["Przeważnie pogodnie", "🌤️"], 2: ["Częściowe zachmurzenie", "⛅"], 3: ["Pochmurno", "☁️"], 45: ["Mgła", "🌫️"], 51: ["Mżawka", "🌦️"], 61: ["Deszcz", "🌧️"], 71: ["Śnieg", "🌨️"], 80: ["Przelotny deszcz", "🌦️"], 95: ["Burza", "⛈️"] };
 const $ = (selector) => document.querySelector(selector);
@@ -184,6 +194,7 @@ async function checkAuth() {
     const payload = await response.json();
     authUser = payload.user;
     updateAccountButton();
+    loadLeaderboard();
   } catch {
     // Statyczny podgląd bez backendu pozostaje użyteczny.
   } finally {
@@ -243,6 +254,7 @@ async function submitAuth(event) {
     }
     authUser = result.user;
     updateAccountButton();
+    loadLeaderboard();
     closeAuth();
     form.reset();
   } catch {
@@ -316,6 +328,7 @@ function initAuth() {
   const remaining = getAuthCooldownRemaining();
   if (remaining > 0) startAuthCooldown(remaining);
   checkAuth();
+  $("#checkin-button").addEventListener("click", checkIn);
 }
 
 function getStationById(stationId) {
@@ -349,7 +362,8 @@ const skmService = {
     if (!getStationById(destinationStationId)) throw new Error("Nieznana stacja końcowa.");
     const baseRows = DEMO_DEPARTURES[originStationId] ?? buildGeneratedDepartures(originStationId);
     const destination = getStationById(destinationStationId).stationName;
-    return baseRows.map(([, platform, minutes, delayMinutes]) => [destination, platform, minutes, delayMinutes]);
+    const rows = baseRows.map(([, platform, minutes, delayMinutes]) => [destination, platform, minutes, delayMinutes]);
+    return rows.concat(generatedTransportRows(originStationId, destination, 8));
   }
 };
 
@@ -358,7 +372,9 @@ const state = {
   originStationId: null,
   destinationCityId: "gdynia",
   destinationStationId: "gdynia-glowna",
-  weatherRequestId: 0
+  weatherRequestId: 0,
+  transportMode: "train",
+  departureLimit: 4
 };
 
 const getWeatherLabel = (code) => weatherLabels[code] || ["Zmiennie", "🌥️"];
@@ -410,13 +426,43 @@ function renderDeparturesRows(rows) {
   }).join("");
 }
 
+function generatedTransportRows(originId, destinationName, count = 12) {
+  const seed = [...originId].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return Array.from({ length: count }, (_, index) => [destinationName, String((seed + index) % 5 + 1), 3 + index * 6 + seed % 3, index % 5 === 2 ? 2 : 0]);
+}
+
+function populateBusPickers() {
+  const root = $("#bus-pickers");
+  root.innerHTML = `<div class="route-picker"><span class="route-picker-title">Przystanek początkowy</span><div class="pickers-group"><label class="station-picker"><span class="picker-label">Miasto</span><select id="bus-origin-city"></select><span aria-hidden="true">⌄</span></label><label class="station-picker"><span class="picker-label">Przystanek</span><select id="bus-origin-stop"></select><span aria-hidden="true">⌄</span></label></div></div><span class="route-arrow" aria-hidden="true">→</span><div class="route-picker"><span class="route-picker-title">Przystanek końcowy</span><div class="pickers-group"><label class="station-picker"><span class="picker-label">Miasto</span><select id="bus-destination-city"></select><span aria-hidden="true">⌄</span></label><label class="station-picker"><span class="picker-label">Przystanek</span><select id="bus-destination-stop"></select><span aria-hidden="true">⌄</span></label></div></div>`;
+  populateOptionsFromNetwork("#bus-origin-city", BUS_NETWORK, "gdansk");
+  populateOptionsFromNetwork("#bus-destination-city", BUS_NETWORK, "gdynia");
+  state.busOriginCity = "gdansk"; state.busDestinationCity = "gdynia";
+  state.busOriginStop = populateStationOptions("#bus-origin-stop", "gdansk", null, BUS_NETWORK);
+  state.busDestinationStop = populateStationOptions("#bus-destination-stop", "gdynia", null, BUS_NETWORK);
+  ["bus-origin-city", "bus-destination-city", "bus-origin-stop", "bus-destination-stop"].forEach((id) => $(`#${id}`).addEventListener("change", onBusChange));
+}
+
+function populateOptionsFromNetwork(selector, network, selectedCityId) {
+  $(selector).innerHTML = Object.entries(network).map(([id, city]) => `<option value="${id}">${city.name}</option>`).join("");
+  $(selector).value = selectedCityId;
+}
+
+function populateStationOptions(selector, cityId, selectedStationId, network = SKM_NETWORK) {
+  const city = network[cityId];
+  const options = city ? city.stations : [];
+  const next = options.some((item) => item.id === selectedStationId) ? selectedStationId : options[0]?.id ?? null;
+  $(selector).innerHTML = options.map((item) => `<option value="${item.id}">${item.name}</option>`).join("");
+  if (next) $(selector).value = next;
+  return next;
+}
+
 function populateCityOptions(selector, selectedCityId) {
   $(selector).innerHTML = Object.entries(SKM_NETWORK).map(([cityId, city]) => `<option value="${cityId}">${city.name}</option>`).join("");
   $(selector).value = selectedCityId;
 }
 
-function populateStationOptions(selector, cityId, selectedStationId) {
-  const city = SKM_NETWORK[cityId];
+function populateStationOptions(selector, cityId, selectedStationId, network = SKM_NETWORK) {
+  const city = network[cityId];
   const stationOptions = city ? city.stations : [];
   const nextStationId = stationOptions.some((station) => station.id === selectedStationId) ? selectedStationId : stationOptions[0]?.id ?? null;
   $(selector).innerHTML = stationOptions.map((station) => `<option value="${station.id}">${station.name}</option>`).join("");
@@ -439,7 +485,7 @@ async function fetchWeather(cityId) {
     if (!response.ok) throw new Error("Weather request failed");
     return { data: await response.json(), demo: false, error: null };
   } catch {
-    return { data: DEMO_WEATHER, demo: true, error: "Nie udało się pobrać aktualnej pogody — pokazuję dane demonstracyjne." };
+    return { data: DEMO_WEATHER, demo: true, error: "Brak połączenia z serwisem pogodowym — pokazuję ostatnie dane zastępcze." };
   }
 }
 
@@ -468,7 +514,7 @@ function renderWeather({ data, demo, error }, locationName) {
   const location = getStationById(state.originStationId);
   $("#weather-location").textContent = `Pogoda dla: ${location?.cityName || "wybranej lokalizacji"}`;
   $("#weather-station").textContent = locationName;
-  $("#weather-source").textContent = demo ? "tryb demonstracyjny" : "Open-Meteo";
+  $("#weather-source").textContent = demo ? "dane zastępcze" : "Open-Meteo";
   $("#weather-error").textContent = error || "";
   $("#weather-error").classList.toggle("hidden", !error);
   $("#weather-content").innerHTML = `<span class="weather-icon" aria-hidden="true">${icon}</span><div><div class="temperature">${Math.round(current.temperature_2m)}<sup>°C</sup></div><div class="weather-label">${label}</div></div>`;
@@ -487,6 +533,7 @@ async function loadWeather() {
 }
 
 async function loadDepartures() {
+  if (state.transportMode === "bus") return loadBusDepartures();
   updateRouteSummary();
   const origin = getStationById(state.originStationId);
   const destination = getStationById(state.destinationStationId);
@@ -503,13 +550,72 @@ async function loadDepartures() {
       updateNextTrainCard(origin.stationName, destination.stationName, null);
       return;
     }
-    renderDeparturesRows(rows);
+    renderDeparturesRows(rows.slice(0, state.departureLimit));
     updateNextTrainCard(origin.stationName, destination.stationName, rows[0]);
     setDeparturesState("ready");
+    $("#show-later-button").classList.toggle("hidden", rows.length <= state.departureLimit);
   } catch {
     setDeparturesState("error");
     updateNextTrainCard(origin.stationName, destination.stationName, null);
   }
+
+}
+
+async function loadBusDepartures() {
+    const origin = BUS_NETWORK[state.busOriginCity]?.stations.find((item) => item.id === state.busOriginStop);
+    const destination = BUS_NETWORK[state.busDestinationCity]?.stations.find((item) => item.id === state.busDestinationStop);
+    const same = !origin || !destination || state.busOriginStop === state.busDestinationStop;
+    $("#route-summary").innerHTML = !same ? `<strong>${origin.name}</strong> → <strong>${destination.name}</strong>` : "";
+    $("#route-error").classList.toggle("hidden", !same);
+    $("#transport-notice").querySelector("span:last-child").textContent = "Brak bezpośredniego połączenia z przewoźnikiem — pokazujemy orientacyjne dane testowe.";
+    if (same) { setDeparturesState("empty"); return; }
+    setDeparturesState("loading");
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    renderDeparturesRows(generatedTransportRows(state.busOriginStop, destination.name, 10));
+    setDeparturesState("ready");
+    $("#show-later-button").classList.add("hidden");
+}
+
+function onBusChange(event) {
+    const id = event.target.id;
+    if (id === "bus-origin-city") { state.busOriginCity = event.target.value; state.busOriginStop = populateStationOptions("#bus-origin-stop", state.busOriginCity, null, BUS_NETWORK); }
+    if (id === "bus-destination-city") { state.busDestinationCity = event.target.value; state.busDestinationStop = populateStationOptions("#bus-destination-stop", state.busDestinationCity, null, BUS_NETWORK); }
+    if (id === "bus-origin-stop") state.busOriginStop = event.target.value;
+    if (id === "bus-destination-stop") state.busDestinationStop = event.target.value;
+    loadDepartures();
+}
+
+function setTransportMode(mode) {
+    state.transportMode = mode;
+    const bus = mode === "bus";
+    $("#trains-tab").classList.toggle("active", !bus);
+    $("#buses-tab").classList.toggle("active", bus);
+    $("#train-pickers").classList.toggle("hidden", bus);
+    $("#bus-pickers").classList.toggle("hidden", !bus);
+    $("#departures-title").textContent = bus ? "Nadjeżdżające autobusy" : "Nadjeżdżające pociągi";
+    $("#transport-notice").querySelector("span:last-child").textContent = bus ? "Brak bezpośredniego połączenia z przewoźnikiem — pokazujemy orientacyjne dane testowe." : "Godziny odjazdów są orientacyjne. Po podłączeniu danych przewoźnika pojawią się aktualne informacje.";
+    loadDepartures();
+}
+
+async function loadLeaderboard() {
+    if (!authUser) { $("#leaderboard").innerHTML = ""; return; }
+    try {
+      const response = await fetch(`${API_BASE}/api/checkins/today`, { credentials: "include" });
+      if (!response.ok) return;
+      const data = await response.json();
+      $("#checkin-status").textContent = data.checkedIn ? `Obecność zgłoszona. Pass: ${data.streak} dni.` : `Twój pass: ${data.streak} dni.`;
+      $("#checkin-button").disabled = data.checkedIn;
+      $("#checkin-button").textContent = data.checkedIn ? "Obecność zgłoszona" : "Zgłoś obecność";
+      $("#leaderboard").innerHTML = (data.top || []).map((item) => `<li><strong>${item.username}</strong> — ${item.streak} dni</li>`).join("");
+    } catch { /* optional widget */ }
+}
+
+async function checkIn() {
+    if (!authUser) return $("#checkin-status").textContent = "Zaloguj się, aby zgłosić obecność.";
+    const response = await fetch(`${API_BASE}/api/checkins`, { method: "POST", credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    $("#checkin-status").textContent = response.status === 409 ? "Obecność na dziś jest już zgłoszona." : (data.message || data.error || "Nie udało się zgłosić obecności.");
+    await loadLeaderboard();
 }
 
 async function loadData(showToast = false) {
@@ -523,6 +629,12 @@ async function loadData(showToast = false) {
 }
 
 function bindEvents() {
+  $("#trains-tab").addEventListener("click", () => setTransportMode("train"));
+  $("#buses-tab").addEventListener("click", () => setTransportMode("bus"));
+  $("#show-later-button").addEventListener("click", () => {
+    state.departureLimit += 4;
+    loadDepartures();
+  });
   $("#origin-city-select").addEventListener("change", async (event) => {
     state.originCityId = event.target.value;
     state.originStationId = populateStationOptions("#origin-station-select", state.originCityId, null);
@@ -549,6 +661,7 @@ function initFilters() {
   state.originStationId = populateStationOptions("#origin-station-select", state.originCityId, "gdansk-glowny");
   populateCityOptions("#destination-city-select", state.destinationCityId);
   state.destinationStationId = populateStationOptions("#destination-station-select", state.destinationCityId, state.destinationStationId);
+  populateBusPickers();
 }
 
 initTheme();

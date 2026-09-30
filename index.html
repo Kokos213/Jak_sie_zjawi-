@@ -79,7 +79,6 @@
                 <p class="eyebrow" id="next-train-subtitle">Najbliższy odjazd</p>
                 <h2 id="next-train-title">Trasa</h2>
               </div>
-              <span class="demo-badge">DEMO</span>
             </div>
             <div id="next-train-content" class="next-train-content">
               <div class="loading-pulse medium"></div>
@@ -104,9 +103,13 @@
           <div class="section-heading departures-heading">
             <div>
               <p class="eyebrow">Ruch na trasie</p>
+              <div class="transport-tabs" role="tablist" aria-label="Rodzaj transportu">
+                <button class="transport-tab active" id="trains-tab" type="button" role="tab">Pociągi</button>
+                <button class="transport-tab" id="buses-tab" type="button" role="tab">Autobusy</button>
+              </div>
               <h2 id="departures-title">Nadjeżdżające pociągi</h2>
             </div>
-            <div class="route-pickers" role="group" aria-label="Wybór stacji początkowej i końcowej">
+            <div class="route-pickers" id="train-pickers" role="group" aria-label="Wybór stacji początkowej i końcowej">
               <div class="route-picker">
                 <span class="route-picker-title">Stacja początkowa</span>
                 <div class="pickers-group">
@@ -121,6 +124,7 @@
                     <span aria-hidden="true">⌄</span>
                   </label>
                 </div>
+                <div class="route-pickers hidden" id="bus-pickers" role="group" aria-label="Wybór przystanku początkowego i końcowego"></div>
               </div>
               <span class="route-arrow" aria-hidden="true">→</span>
               <div class="route-picker">
@@ -142,9 +146,9 @@
           </div>
           <div class="route-summary" id="route-summary" aria-live="polite"></div>
           <div class="route-error hidden" id="route-error" role="alert">Stacja początkowa i końcowa muszą być różne. Wybierz inną stację końcową.</div>
-          <div class="demo-notice" role="note">
+          <div class="demo-notice" role="note" id="transport-notice">
             <span class="notice-icon" aria-hidden="true">i</span>
-            <span>Rozkład jazdy jest prezentowany w trybie demonstracyjnym. Po podpięciu publicznego API dane pojawią się tutaj automatycznie.</span>
+            <span>Godziny odjazdów są orientacyjne. Po podłączeniu danych przewoźnika pojawią się aktualne informacje.</span>
           </div>
           <div class="departures-table-wrap">
             <div class="inline-state hidden" id="departures-loading" role="status" aria-live="polite">Ładuję odjazdy dla wybranej stacji…</div>
@@ -157,7 +161,20 @@
               <tbody id="departures-body"></tbody>
             </table>
             <div class="empty-state hidden" id="departures-empty">Brak nadjeżdżających pociągów dla wybranej stacji.</div>
+            <button class="later-button hidden" id="show-later-button" type="button">Pokaż późniejsze odjazdy</button>
           </div>
+        </section>
+        <section class="checkin-section panel" aria-labelledby="checkin-title">
+          <div>
+            <p class="eyebrow">Codzienna obecność</p>
+            <h2 id="checkin-title">Zamelduj się dziś</h2>
+            <p class="checkin-copy">Buduj pass, odwiedzając aplikację codziennie.</p>
+          </div>
+          <div class="checkin-actions">
+            <button class="auth-submit checkin-button" id="checkin-button" type="button">Zgłoś obecność</button>
+            <span id="checkin-status" class="checkin-status" role="status" aria-live="polite">Zaloguj się, aby się zameldować.</span>
+          </div>
+          <ol class="leaderboard" id="leaderboard" aria-label="Top 10 obecności"></ol>
         </section>
       </main>
 
