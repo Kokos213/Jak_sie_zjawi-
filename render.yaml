@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: jak-sie-zjawie
+    runtime: python
+    buildCommand: "true"
+    startCommand: "./start_server.sh"
+    healthCheckPath: /api/health
+    envVars:
+      - key: SKM_SESSION_SECRET
+        generateValue: true
+      - key: SKM_PASSWORD_PEPPER
+        generateValue: true
+      - key: SKM_DB_PATH
+        value: ./skm.sqlite3

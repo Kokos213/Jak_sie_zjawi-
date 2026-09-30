@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0d1b2a" />
+    <meta name="description" content="Pogoda i odjazdy SKM dla Trójmiasta" />
+    <title>Jak się zjawię — Pogoda i odjazdy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Jak się zjawię, strona główna">
+          <span class="cat-logo" aria-hidden="true">
+            <svg viewBox="0 0 48 42" role="img">
+              <path d="M8 17 6 5l10 6c2-1 4-2 8-2s6 1 8 2l10-6-2 12c2 3 3 6 3 10 0 8-8 13-19 13S5 35 5 27c0-4 1-7 3-10Z" />
+              <circle cx="17" cy="24" r="2.2" /><circle cx="31" cy="24" r="2.2" />
+              <path d="M21 29q3 3 6 0M24 27v2M10 27l-7-2M38 27l7-2" />
+            </svg>
+          </span>
+          <span class="brand-copy"><strong>Jak się zjawię</strong><small>pogoda & odjazdy</small></span>
+        </a>
+        <div class="topbar-meta">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span id="last-updated">Aktualizuję dane…</span>
+          <button class="account-button" id="account-button" type="button">Zaloguj się</button>
+          <label class="theme-picker">
+            <span class="sr-only">Wybierz motyw kolorystyczny</span>
+            <span class="theme-icon" aria-hidden="true">◐</span>
+            <select id="theme-select" aria-label="Wybierz motyw kolorystyczny">
+              <option value="blue-black">Czarno-niebieski</option>
+              <option value="red-white">Biało-czerwony</option>
+              <option value="white">Sam biały</option>
+              <option value="charcoal">Czarny z szarym</option>
+            </select>
+          </label>
+          <button class="icon-button" id="refresh-button" type="button" aria-label="Odśwież dane" title="Odśwież dane">↻</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="welcome-title">
+          <div>
+            <p class="eyebrow">Twój poranek w Trójmieście</p>
+            <h1 id="welcome-title">Dzień dobry<span class="accent">.</span></h1>
+            <p class="hero-subtitle">Sprawdź pogodę i złap najbliższy pociąg SKM.</p>
+          </div>
+          <div class="date-card">
+            <span id="current-day">—</span>
+            <strong id="current-date">—</strong>
+          </div>
+        </section>
+
+        <section class="dashboard-grid" aria-label="Najważniejsze informacje">
+          <article class="weather-card panel" aria-labelledby="weather-title">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow" id="weather-location">Pogoda dla: Gdańsk</p>
+                <span class="weather-station" id="weather-station">Gdańsk Główny</span>
+                <h2 id="weather-title">Teraz</h2>
+              </div>
+              <span class="weather-source" id="weather-source">Open-Meteo</span>
+            </div>
+            <div id="weather-content" class="weather-content">
+              <div class="loading-pulse large"></div>
+              <div class="loading-lines"><span></span><span></span></div>
+            </div>
+            <div class="weather-error hidden" id="weather-error" role="status" aria-live="polite"></div>
+            <div class="weather-details" id="weather-details" aria-label="Szczegóły pogody"></div>
+          </article>
+
+          <article class="next-train-card panel" aria-labelledby="next-train-title">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow" id="next-train-subtitle">Najbliższy odjazd</p>
+                <h2 id="next-train-title">Trasa</h2>
+              </div>
+              <span class="demo-badge">DEMO</span>
+            </div>
+            <div id="next-train-content" class="next-train-content">
+              <div class="loading-pulse medium"></div>
+            </div>
+          </article>
+        </section>
+
+        <section class="forecast-section" aria-labelledby="forecast-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Najbliższe godziny</p>
+              <h2 id="forecast-title">Prognoza godzinowa</h2>
+            </div>
+            <span class="section-note">temperatura i opady</span>
+          </div>
+          <div class="forecast-strip" id="forecast-strip" aria-live="polite">
+            <div class="empty-state">Ładuję prognozę…</div>
+          </div>
+        </section>
+
+        <section class="departures-section" aria-labelledby="departures-title">
+          <div class="section-heading departures-heading">
+            <div>
+              <p class="eyebrow">Ruch na trasie</p>
+              <h2 id="departures-title">Nadjeżdżające pociągi</h2>
+            </div>
+            <div class="route-pickers" role="group" aria-label="Wybór stacji początkowej i końcowej">
+              <div class="route-picker">
+                <span class="route-picker-title">Stacja początkowa</span>
+                <div class="pickers-group">
+                  <label class="station-picker">
+                    <span class="picker-label">Miasto</span>
+                    <select id="origin-city-select"></select>
+                    <span aria-hidden="true">⌄</span>
+                  </label>
+                  <label class="station-picker">
+                    <span class="picker-label">Dworzec / stacja</span>
+                    <select id="origin-station-select"></select>
+                    <span aria-hidden="true">⌄</span>
+                  </label>
+                </div>
+              </div>
+              <span class="route-arrow" aria-hidden="true">→</span>
+              <div class="route-picker">
+                <span class="route-picker-title">Stacja końcowa</span>
+                <div class="pickers-group">
+                  <label class="station-picker">
+                    <span class="picker-label">Miasto</span>
+                    <select id="destination-city-select"></select>
+                    <span aria-hidden="true">⌄</span>
+                  </label>
+                  <label class="station-picker">
+                    <span class="picker-label">Dworzec / stacja</span>
+                    <select id="destination-station-select"></select>
+                    <span aria-hidden="true">⌄</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="route-summary" id="route-summary" aria-live="polite"></div>
+          <div class="route-error hidden" id="route-error" role="alert">Stacja początkowa i końcowa muszą być różne. Wybierz inną stację końcową.</div>
+          <div class="demo-notice" role="note">
+            <span class="notice-icon" aria-hidden="true">i</span>
+            <span>Rozkład jazdy jest prezentowany w trybie demonstracyjnym. Po podpięciu publicznego API dane pojawią się tutaj automatycznie.</span>
+          </div>
+          <div class="departures-table-wrap">
+            <div class="inline-state hidden" id="departures-loading" role="status" aria-live="polite">Ładuję odjazdy dla wybranej stacji…</div>
+            <div class="inline-state error hidden" id="departures-error" role="alert">Nie udało się pobrać odjazdów. Spróbuj odświeżyć dane.</div>
+            <table class="departures-table">
+              <caption class="sr-only">Lista nadjeżdżających pociągów</caption>
+              <thead>
+                <tr><th scope="col">Kierunek</th><th scope="col">Peron</th><th scope="col">Odjazd</th><th scope="col">Status</th></tr>
+              </thead>
+              <tbody id="departures-body"></tbody>
+            </table>
+            <div class="empty-state hidden" id="departures-empty">Brak nadjeżdżających pociągów dla wybranej stacji.</div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>SKM Trójmiasto</span><span class="footer-separator">•</span><span>Dane pogodowe: Open-Meteo</span>
+      </footer>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="auth-backdrop hidden" id="auth-backdrop">
+      <section class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+        <button class="auth-close" id="auth-close" type="button" aria-label="Zamknij">×</button>
+        <p class="eyebrow">Konto użytkownika</p>
+        <h2 id="auth-title">Zarejestruj się</h2>
+        <p class="auth-intro" id="auth-intro">Zapisz ulubioną trasę i szybciej sprawdzaj odjazdy.</p>
+        <div class="auth-tabs" role="tablist">
+          <button class="auth-tab active" id="register-tab" type="button" role="tab">Rejestracja</button>
+          <button class="auth-tab" id="login-tab" type="button" role="tab">Logowanie</button>
+        </div>
+        <form id="auth-form" novalidate>
+          <label class="auth-field" id="username-field"><span>Nazwa użytkownika</span><input id="auth-username" name="username" autocomplete="username" minlength="3" maxlength="32" required /></label>
+          <label class="auth-field"><span>Adres e-mail</span><input id="auth-email" name="email" type="email" autocomplete="email" maxlength="254" required /></label>
+          <label class="auth-field"><span>Hasło</span><input id="auth-password" name="password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required /></label>
+          <label class="auth-field" id="confirm-field"><span>Potwierdź hasło</span><input id="auth-confirm" name="confirmPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128" required /></label>
+          <p class="auth-error hidden" id="auth-error" role="alert"></p>
+          <button class="auth-submit" type="submit" id="auth-submit">Utwórz konto</button>
+        </form>
+      </section>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
