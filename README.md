@@ -69,3 +69,4 @@ Przed użyciem produkcyjnym wybierz jedną opcję:
 
 Hasła nigdy nie są przechowywane jako plaintext: backend używa `scrypt`, a na interpreterach bez `hashlib.scrypt` bezpiecznego fallbacku `PBKDF2-HMAC-SHA256` (310 000 iteracji). Token sesji jest przechowywany w bazie jako HMAC. Nie commituj `.env`, sekretów ani `skm.sqlite3`.
 # Jak_sie_zjawi-
+# Jak_sie_zjawi-
