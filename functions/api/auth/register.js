@@ -18,7 +18,12 @@ export async function onRequestPost(context) {
       body: JSON.stringify({ email, password, data: { username } })
     });
     if (response.status === 429) return rateLimitResponse(response);
-    if (!response.ok) return json({ error: errorMessage("register", response.status, body) }, statusForAuthError("register", response.status));
+    if (!response.ok) {
+      return json(
+        { error: errorMessage("register", response.status, body), code: response.status === 400 ? "supabase_signup_rejected" : undefined },
+        statusForAuthError("register", response.status)
+      );
+    }
     if (!body.user) return json({ error: "Konto utworzone. Sprawdź e-mail, aby je aktywować, a następnie zaloguj się." }, 201);
     if (!body.access_token) return json({ error: "Konto utworzone. Sprawdź e-mail, aby je aktywować, a następnie zaloguj się." }, 201);
     const headers = authCookies(body);

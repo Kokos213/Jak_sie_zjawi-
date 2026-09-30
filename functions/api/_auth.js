@@ -97,6 +97,18 @@ function errorMessage(operation, status, body) {
   }
   if (status === 429) return "Zbyt wiele prób. Odczekaj chwilę i spróbuj ponownie.";
   if (status >= 500) return "Usługa kont jest chwilowo niedostępna. Spróbuj ponownie za chwilę.";
+  if (status === 400 && /captcha|turnstile|challenge/i.test(details)) {
+    return "Rejestracja wymaga dodatkowej weryfikacji. Sprawdź ustawienia CAPTCHA/Turnstile w Supabase Auth.";
+  }
+  if (status === 400 && /password|weak|short|characters/i.test(details)) {
+    return "Hasło nie spełnia wymagań Supabase. Użyj co najmniej 6 znaków (aplikacja zaleca minimum 10).";
+  }
+  if (status === 400 && /email|address|invalid/i.test(details)) {
+    return "Podaj poprawny adres e-mail w formacie nazwa@example.com.";
+  }
+  if (status === 400) {
+    return "Supabase odrzucił dane rejestracji. Sprawdź e-mail, hasło i ustawienia Auth, a następnie spróbuj ponownie.";
+  }
   if (operation === "register" && /password.*(weak|short|should contain)|weak password/i.test(details)) {
     return "Hasło jest za słabe. Użyj co najmniej 10 znaków.";
   }
