@@ -38,7 +38,7 @@ Frontend jest statyczny i korzysta z katalogu głównego repozytorium. Przygotow
    - **Production branch:** `main`
    - **Root directory:** `/` (root repozytorium projektu)
    - **Build command:** `sh ./build_pages.sh`
-   - **Build output directory:** `.`
+   - **Build output directory:** `dist`
 4. Dodaj zmienną środowiskową builda `API_BASE`:
    - `https://YOUR-SERVICE.onrender.com` — zamień `YOUR-SERVICE` na faktyczny adres usługi Render.
 5. Po pierwszym deployu skopiuj dokładny adres Pages, np. `https://jak-sie-zjawie.pages.dev`, do zmiennej Render `SKM_ALLOWED_ORIGINS`. Jeśli używasz własnej domeny, wpisz również jej pełny origin, rozdzielając origins przecinkami.
@@ -52,7 +52,7 @@ Po połączeniu repozytorium z Cloudflare Pages każdy push do skonfigurowanej g
 
 Render Web Service również może automatycznie wdrażać push do połączonej gałęzi (zwykle `main`), jeśli w ustawieniach usługi jest włączone **Auto-Deploy**. Zmiany w `server.py`, `render.yaml` lub backendowych zmiennych wymagają nowego deployu Render; zmiana samego frontendu wymaga deployu Pages. Po zmianie `SKM_ALLOWED_ORIGINS` wykonaj redeploy/restart Render, aby proces wczytał nową wartość.
 
-`build_pages.sh` generuje `config.js` i sprawdza, że `index.html`, `styles.css`, `app.js` oraz `functions/` istnieją przed publikacją. Bez uruchomionego builda repo zawiera bezpieczny `config.js` same-origin, więc brak zmiennej `API_BASE` nie wyłącza JavaScript. Na wariancie Pages + Render `app.js` wysyła `/api/auth/*` do Render z `credentials: include`; na wariancie Pages Functions pozostaw `API_BASE` puste.
+`build_pages.sh` tworzy `dist/` i kopiuje do niego wyłącznie `index.html`, `styles.css`, `app.js` oraz wygenerowany `config.js`; sprawdza też obecność `functions/`. `functions/` nie jest publikowany jako statyczny output — Pages Functions wykrywa go jako źródło routingu przy deployu przez Git integration/Wrangler. Na wariancie Pages + Render `app.js` wysyła `/api/auth/*` do Render z `credentials: include`; na wariancie Pages Functions pozostaw `API_BASE` puste.
 
 ## Alternatywna migracja auth: Cloudflare Pages Functions + Supabase
 
@@ -64,19 +64,19 @@ Render pozostaje działającą ścieżką i nie jest usuwany. Nowa ścieżka zac
    - lokalnie `http://localhost:8788` (dla `wrangler pages dev`)
 3. W Cloudflare Pages ustaw build:
    - **Build command:** `sh ./build_pages.sh`
-   - **Output directory:** `.`
+   - **Output directory:** `dist`
    - **Production branch:** `main`
 4. W Pages → Settings → Environment variables dodaj jako **encrypted runtime variables** dla Preview i Production:
    - `SUPABASE_URL=https://YOUR-PROJECT.supabase.co`
    - `SUPABASE_ANON_KEY=...`
    Nie używaj `service_role` key w Functions ani w frontendzie.
    Dla tej ścieżki Supabase pozostaw `API_BASE` puste/nieustawione — wtedy frontend korzysta z Pages Functions na tym samym originie. `API_BASE=https://...onrender.com` dotyczy wyłącznie wariantu Pages + istniejący Render.
-5. Wypchnij commit do `main`. Użyj Cloudflare Pages z połączeniem Git lub Wrangler Pages — nie zwykłego uploadu samych plików statycznych. Sprawdź w deploy logu, że katalog `functions/` został wykryty jako Pages Functions. Ustaw **Root directory `/`**, **Build command `sh ./build_pages.sh`**, **Build output directory `.`**. Nie ustawiaj outputu na `dist`, `public` ani `functions`: w tym projekcie root zawiera jednocześnie statyczny frontend i źródła Pages Functions.
+5. Wypchnij commit do `main`. Użyj Cloudflare Pages z połączeniem Git lub Wrangler Pages — nie zwykłego uploadu samych plików statycznych. Ustaw **Root directory `/`**, **Build command `sh ./build_pages.sh`**, **Build output directory `dist`**. `dist/` zawiera tylko frontend; `functions/` musi pozostać w root repozytorium jako źródło Pages Functions i nie może być ustawione jako output.
 6. Przetestuj:
    - `https://TWOJ-PROJEKT.pages.dev/api/health` — musi zwrócić `status: "ok"`, nie samo 200 z hosta statycznego
    - rejestrację, potwierdzenie e-maila (jeśli włączone w Supabase), logowanie i wylogowanie.
 
-Tryb lokalny wymaga Wrangler (`npm install -g wrangler` lub `npx wrangler`) oraz pliku `.dev.vars` skopiowanego z `.dev.vars.example`. Uruchom `npx wrangler pages dev . --compatibility-date=2026-09-30`; `.dev.vars` jest ignorowany. Przy braku Wrangler nadal działa lokalny Render/Python przez `./start_server.sh`.
+Tryb lokalny wymaga Wrangler (`npm install -g wrangler` lub `npx wrangler`) oraz pliku `.dev.vars` skopiowanego z `.dev.vars.example`. Po buildzie uruchom `npx wrangler pages dev dist --compatibility-date=2026-09-30`; Functions muszą być wykryte z root repozytorium zgodnie z `wrangler.toml`. Przy braku Wrangler nadal działa lokalny Render/Python przez `./start_server.sh`.
 
 Jeżeli `/api/health` zwraca 404, Pages wdrożyło tylko frontend statyczny albo projekt nie korzysta z Pages Functions. Sprawdź root directory `/`, połączenie Git/Pages Functions oraz redeploy po commitcie zawierającym `functions/`. Jeżeli zwraca 503 z `supabase_env_missing`, dodaj `SUPABASE_URL` i `SUPABASE_ANON_KEY` jako **runtime variables** w Production i wykonaj redeploy. Jeżeli zwraca `supabase_timeout`/`supabase_unreachable`, sprawdź Project URL, anon key i status Supabase. To są rozstrzygające diagnostyki — nie trzeba zgadywać po samym spinnerze.
 

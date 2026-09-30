@@ -3,3 +3,4 @@ skm.sqlite3
 *.sqlite3
 __pycache__/
 .dev.vars
+dist/

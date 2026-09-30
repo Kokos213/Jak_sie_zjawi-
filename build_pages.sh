@@ -8,10 +8,13 @@ case "$API_BASE" in
 esac
 
 ESCAPED_API_BASE=$(printf '%s' "$API_BASE" | sed 's/\\/\\\\/g; s/"/\\"/g')
-printf 'window.__SKM_API_BASE__ = "%s";\n' "$ESCAPED_API_BASE" > config.js
-test -s config.js
-test -s index.html
-test -s styles.css
-test -s app.js
+rm -rf dist
+mkdir -p dist
+cp index.html styles.css app.js dist/
+printf 'window.__SKM_API_BASE__ = "%s";\n' "$ESCAPED_API_BASE" > dist/config.js
+test -s dist/config.js
+test -s dist/index.html
+test -s dist/styles.css
+test -s dist/app.js
 test -d functions
-echo "Generated config.js for static Pages build."
+echo "Generated dist/ for Cloudflare Pages static assets; functions/ remains a Pages Functions source directory."
