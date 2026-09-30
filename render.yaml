@@ -12,3 +12,5 @@ services:
         generateValue: true
       - key: SKM_DB_PATH
         value: ./skm.sqlite3
+      - key: SKM_ALLOWED_ORIGINS
+        sync: false

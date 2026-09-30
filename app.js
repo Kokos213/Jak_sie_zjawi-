@@ -89,7 +89,7 @@ const DEMO_DEPARTURES = {
 
 const weatherLabels = { 0: ["Bezchmurnie", "☀️"], 1: ["Przeważnie pogodnie", "🌤️"], 2: ["Częściowe zachmurzenie", "⛅"], 3: ["Pochmurno", "☁️"], 45: ["Mgła", "🌫️"], 51: ["Mżawka", "🌦️"], 61: ["Deszcz", "🌧️"], 71: ["Śnieg", "🌨️"], 80: ["Przelotny deszcz", "🌦️"], 95: ["Burza", "⛈️"] };
 const $ = (selector) => document.querySelector(selector);
-const API_BASE = window.location.port === "4173" ? "http://127.0.0.1:8000" : "";
+const API_BASE = window.__SKM_API_BASE__ || (window.location.port === "4173" ? "http://127.0.0.1:8000" : "");
 const THEME_STORAGE_KEY = "skm-pogoda-theme";
 const THEMES = ["blue-black", "red-white", "white", "charcoal"];
 

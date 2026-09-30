@@ -18,6 +18,14 @@ ROOT = Path(__file__).resolve().parent
 DB_PATH = Path(os.getenv("SKM_DB_PATH", ROOT / "skm.sqlite3"))
 SESSION_SECRET = os.getenv("SKM_SESSION_SECRET", "local-development-secret-change-me").encode()
 PASSWORD_PEPPER = os.getenv("SKM_PASSWORD_PEPPER", "local-development-pepper-change-me").encode()
+ALLOWED_ORIGINS = {
+    origin.strip().rstrip("/")
+    for origin in os.getenv(
+        "SKM_ALLOWED_ORIGINS",
+        "http://127.0.0.1:4173,http://localhost:4173",
+    ).split(",")
+    if origin.strip()
+}
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,32}$")
 SESSION_MAX_AGE = 60 * 60 * 24 * 30
@@ -126,7 +134,7 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         origin = self.headers.get("Origin")
-        if origin in {"http://127.0.0.1:4173", "http://localhost:4173"}:
+        if origin in ALLOWED_ORIGINS:
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Access-Control-Allow-Credentials", "true")
             self.send_header("Vary", "Origin")
@@ -184,7 +192,7 @@ class AppHandler(SimpleHTTPRequestHandler):
 
     def do_OPTIONS(self):
         origin = self.headers.get("Origin")
-        if origin not in {"http://127.0.0.1:4173", "http://localhost:4173"}:
+        if origin not in ALLOWED_ORIGINS:
             return self.send_error(HTTPStatus.FORBIDDEN)
         self.send_response(HTTPStatus.NO_CONTENT)
         self.send_header("Access-Control-Allow-Origin", origin)
@@ -225,8 +233,13 @@ class AppHandler(SimpleHTTPRequestHandler):
         with db_connection() as db:
             db.execute("DELETE FROM sessions WHERE expires_at < ?", (now,))
             db.execute("INSERT INTO sessions(token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)", (token_hash, user["id"], now + SESSION_MAX_AGE, now))
-        secure = "; Secure" if self.headers.get("X-Forwarded-Proto", "").lower() == "https" else ""
-        cookie = f"skm_session={raw_token}; Max-Age={SESSION_MAX_AGE}; Path=/; HttpOnly; SameSite=Lax{secure}"
+        is_https = self.headers.get("X-Forwarded-Proto", "").lower() == "https"
+        origin_host = urlparse(self.headers.get("Origin", "")).hostname
+        request_host = (self.headers.get("Host", "").split(":", 1)[0]).lower()
+        cross_site = self.headers.get("Origin") in ALLOWED_ORIGINS and origin_host and origin_host.lower() != request_host
+        same_site = "None" if cross_site else "Lax"
+        secure = "; Secure" if is_https or cross_site else ""
+        cookie = f"skm_session={raw_token}; Max-Age={SESSION_MAX_AGE}; Path=/; HttpOnly; SameSite={same_site}{secure}"
         return self.send_json(HTTPStatus.OK, {"user": public_user(user)}, [cookie])
 
     def logout(self):
@@ -235,8 +248,13 @@ class AppHandler(SimpleHTTPRequestHandler):
             token_hash = hmac.new(SESSION_SECRET, token.encode(), hashlib.sha256).hexdigest()
             with db_connection() as db:
                 db.execute("DELETE FROM sessions WHERE token_hash = ?", (token_hash,))
-        secure = "; Secure" if self.headers.get("X-Forwarded-Proto", "").lower() == "https" else ""
-        cookie = f"skm_session=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax{secure}"
+        is_https = self.headers.get("X-Forwarded-Proto", "").lower() == "https"
+        origin_host = urlparse(self.headers.get("Origin", "")).hostname
+        request_host = (self.headers.get("Host", "").split(":", 1)[0]).lower()
+        cross_site = self.headers.get("Origin") in ALLOWED_ORIGINS and origin_host and origin_host.lower() != request_host
+        same_site = "None" if cross_site else "Lax"
+        secure = "; Secure" if is_https or cross_site else ""
+        cookie = f"skm_session=; Max-Age=0; Path=/; HttpOnly; SameSite={same_site}{secure}"
         return self.send_json(HTTPStatus.OK, {"user": None}, [cookie])
 
 
