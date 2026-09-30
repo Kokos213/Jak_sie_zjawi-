@@ -126,6 +126,7 @@ let authMode = "register";
 let authUser = null;
 let authRequestInFlight = false;
 let authCooldownTimer = null;
+const AUTH_COOLDOWN_KEY = "skm-auth-rate-limit-until";
 
 function setAuthError(message) {
   $("#auth-error").textContent = message || "";
@@ -150,7 +151,12 @@ function setAuthMode(mode) {
   $("#register-tab").classList.toggle("active", registering);
   $("#login-tab").classList.toggle("active", !registering);
   setAuthProgress("");
-  setAuthError("");
+  const remaining = getAuthCooldownRemaining();
+  if (remaining > 0) {
+    setAuthError(`Zbyt wiele prób w całym projekcie Supabase. Odczekaj ${remaining} s przed kolejną próbą.`);
+  } else {
+    setAuthError("");
+  }
 }
 
 function openAuth() {
@@ -187,6 +193,11 @@ async function checkAuth() {
 
 async function submitAuth(event) {
   event.preventDefault();
+  const cooldownRemaining = getAuthCooldownRemaining();
+  if (cooldownRemaining > 0) {
+    startAuthCooldown(cooldownRemaining);
+    return;
+  }
   if (authRequestInFlight || $("#auth-submit").disabled) return;
   setAuthError("");
   setAuthProgress("");
@@ -251,6 +262,11 @@ async function submitAuth(event) {
 function startAuthCooldown(seconds) {
   clearInterval(authCooldownTimer);
   let remaining = Math.max(1, Math.ceil(seconds));
+  try {
+    sessionStorage.setItem(AUTH_COOLDOWN_KEY, String(Date.now() + remaining * 1000));
+  } catch {
+    // In-memory cooldown still protects the current page.
+  }
   const submit = $("#auth-submit");
   submit.disabled = true;
   const tick = () => {
@@ -258,6 +274,11 @@ function startAuthCooldown(seconds) {
     if (remaining <= 0) {
       clearInterval(authCooldownTimer);
       authCooldownTimer = null;
+      try {
+        sessionStorage.removeItem(AUTH_COOLDOWN_KEY);
+      } catch {
+        // Ignore unavailable storage.
+      }
       submit.disabled = false;
       setAuthError("Możesz spróbować ponownie. Jeśli limit wraca, sprawdź limity e-mail w Supabase.");
       return;
@@ -266,6 +287,15 @@ function startAuthCooldown(seconds) {
   };
   tick();
   authCooldownTimer = setInterval(tick, 1000);
+}
+
+function getAuthCooldownRemaining() {
+  try {
+    const until = Number(sessionStorage.getItem(AUTH_COOLDOWN_KEY));
+    return Number.isFinite(until) ? Math.max(0, Math.ceil((until - Date.now()) / 1000)) : 0;
+  } catch {
+    return 0;
+  }
 }
 
 function initAuth() {
@@ -283,6 +313,8 @@ function initAuth() {
   $("#login-tab").addEventListener("click", () => setAuthMode("login"));
   $("#auth-form").addEventListener("submit", submitAuth);
   setAuthMode("register");
+  const remaining = getAuthCooldownRemaining();
+  if (remaining > 0) startAuthCooldown(remaining);
   checkAuth();
 }
 
