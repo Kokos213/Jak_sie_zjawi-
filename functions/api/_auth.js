@@ -75,11 +75,41 @@ function publicUser(user) {
   return user ? { id: user.id, email: user.email, username: user.user_metadata?.username || user.email?.split("@")[0] || "użytkownik" } : null;
 }
 
-function errorMessage(status, body) {
-  if (status === 409 || /already registered|already exists|duplicate/i.test(body?.msg || body?.message || "")) {
+function supabaseErrorText(body) {
+  return [
+    body?.error_description,
+    body?.msg,
+    body?.message,
+    body?.error
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function errorMessage(operation, status, body) {
+  const details = supabaseErrorText(body);
+  if (operation === "login" && /email not confirmed|email_not_confirmed|confirm.*email/i.test(details)) {
+    return "E-mail nie został jeszcze potwierdzony. Sprawdź skrzynkę odbiorczą i kliknij link aktywacyjny.";
+  }
+  if (operation === "login" && /invalid login credentials|invalid.*credential|invalid password/i.test(details)) {
+    return "Nieprawidłowy e-mail lub hasło.";
+  }
+  if (operation === "register" && /already registered|already exists|duplicate|user already/i.test(details)) {
     return "Nie można utworzyć konta. E-mail lub nazwa użytkownika mogą być już zajęte.";
+  }
+  if (status === 429) return "Zbyt wiele prób. Odczekaj chwilę i spróbuj ponownie.";
+  if (status >= 500) return "Usługa kont jest chwilowo niedostępna. Spróbuj ponownie za chwilę.";
+  if (operation === "register" && /password.*(weak|short|should contain)|weak password/i.test(details)) {
+    return "Hasło jest za słabe. Użyj co najmniej 10 znaków.";
+  }
+  if (operation === "register" && /invalid.*email|email.*invalid/i.test(details)) {
+    return "Podaj poprawny adres e-mail.";
   }
   return "Nie udało się przetworzyć żądania. Sprawdź dane i spróbuj ponownie.";
 }
 
-export { ACCESS_COOKIE, REFRESH_COOKIE, authCookies, clearCookies, cookie, env, errorMessage, json, publicUser, readPayload, supabase };
+function statusForAuthError(operation, status) {
+  if (status === 429) return 429;
+  if (status >= 500) return 503;
+  return operation === "login" ? 401 : 422;
+}
+
+export { ACCESS_COOKIE, REFRESH_COOKIE, authCookies, clearCookies, cookie, env, errorMessage, json, publicUser, readPayload, statusForAuthError, supabase };

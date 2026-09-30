@@ -1,4 +1,4 @@
-import { authCookies, errorMessage, json, publicUser, readPayload, supabase } from "../_auth.js";
+import { authCookies, errorMessage, json, publicUser, readPayload, statusForAuthError, supabase } from "../_auth.js";
 
 export async function onRequestPost(context) {
   const payload = await readPayload(context.request);
@@ -17,7 +17,8 @@ export async function onRequestPost(context) {
       method: "POST",
       body: JSON.stringify({ email, password, data: { username } })
     });
-    if (!response.ok || !body.user) return json({ error: errorMessage(response.status, body) }, response.status === 422 ? 422 : 409);
+    if (!response.ok) return json({ error: errorMessage("register", response.status, body) }, statusForAuthError("register", response.status));
+    if (!body.user) return json({ error: "Konto utworzone. Sprawdź e-mail, aby je aktywować, a następnie zaloguj się." }, 201);
     if (!body.access_token) return json({ error: "Konto utworzone. Sprawdź e-mail, aby je aktywować, a następnie zaloguj się." }, 201);
     const headers = authCookies(body);
     return json({ user: publicUser(body.user) }, 200, headers);

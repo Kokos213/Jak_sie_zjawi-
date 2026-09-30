@@ -80,6 +80,18 @@ Tryb lokalny wymaga Wrangler (`npm install -g wrangler` lub `npx wrangler`) oraz
 
 Jeżeli `/api/health` zwraca 404, Pages wdrożyło tylko frontend statyczny albo projekt nie korzysta z Pages Functions. Sprawdź root directory `/`, połączenie Git/Pages Functions oraz redeploy po commitcie zawierającym `functions/`. Jeżeli zwraca 503 z `supabase_env_missing`, dodaj `SUPABASE_URL` i `SUPABASE_ANON_KEY` jako **runtime variables** w Production i wykonaj redeploy. Jeżeli zwraca `supabase_timeout`/`supabase_unreachable`, sprawdź Project URL, anon key i status Supabase. To są rozstrzygające diagnostyki — nie trzeba zgadywać po samym spinnerze.
 
+### Test kontraktu auth po wdrożeniu
+
+Po uzyskaniu `status: "ok", code: "ready"` wykonaj z terminala (bez wpisywania prawdziwego hasła do historii shell, jeśli to możliwe):
+
+```bash
+curl -i -X POST "https://TWOJ-PROJEKT.pages.dev/api/auth/login" \
+  -H "Content-Type: application/json" \
+  --data '{"email":"nieistniejacy@example.com","password":"niepoprawne-haslo"}'
+```
+
+Oczekiwane zachowanie to szybka odpowiedź JSON `401` z komunikatem `Nieprawidłowy e-mail lub hasło.`. `404` oznacza brak Functions, `503` oznacza problem runtime/env/Supabase, a zawieszenie ponad 20 sekund oznacza problem sieciowy — frontend przerwie je komunikatem timeoutu. Przy rejestracji z włączonym potwierdzeniem e-mail Supabase zwraca `201` z komunikatem o sprawdzeniu skrzynki; to nie jest błąd. Dla `email_not_confirmed` logowanie pokazuje osobny komunikat o aktywacji e-maila.
+
 Cookies Supabase sesji są ustawiane przez Functions jako `HttpOnly; SameSite=None; Secure`, a requesty frontendowe używają `credentials: include`. Ponieważ API i UI są na tym samym originie Pages, nie jest potrzebny publiczny CORS. Nie wkładaj sekretów do `wrangler.toml`, `config.js`, GitHub ani repozytorium.
 
 Cloudflare Pages nie wykonuje deployu z tego środowiska, bo wymaga dostępu do konta Cloudflare/GitHub. Jedyny ręczny krok: podłącz repozytorium w Pages, ustaw powyższe wartości i po poznaniu domeny Pages wpisz ją do `SKM_ALLOWED_ORIGINS` w Render.

@@ -220,7 +220,8 @@ async function submitAuth(event) {
       if (response.status === 404) {
         return setAuthError("Endpoint logowania nie istnieje. W Cloudflare Pages włącz Pages Functions i wdroż katalog `functions/`, nie tylko statyczny output.");
       }
-      return setAuthError(result.error || "Nie udało się przetworzyć formularza.");
+      const fieldError = result.fields && Object.values(result.fields)[0];
+      return setAuthError(fieldError || result.error || "Nie udało się przetworzyć formularza.");
     }
     authUser = result.user;
     updateAccountButton();
