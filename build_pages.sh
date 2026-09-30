@@ -9,4 +9,9 @@ esac
 
 ESCAPED_API_BASE=$(printf '%s' "$API_BASE" | sed 's/\\/\\\\/g; s/"/\\"/g')
 printf 'window.__SKM_API_BASE__ = "%s";\n' "$ESCAPED_API_BASE" > config.js
+test -s config.js
+test -s index.html
+test -s styles.css
+test -s app.js
+test -d functions
 echo "Generated config.js for static Pages build."

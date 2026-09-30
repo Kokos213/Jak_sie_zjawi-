@@ -37,7 +37,7 @@ Frontend jest statyczny i korzysta z katalogu głównego repozytorium. Przygotow
 3. Ustaw:
    - **Production branch:** `main`
    - **Root directory:** `/` (root repozytorium projektu)
-   - **Build command:** `./build_pages.sh`
+   - **Build command:** `sh ./build_pages.sh`
    - **Build output directory:** `.`
 4. Dodaj zmienną środowiskową builda `API_BASE`:
    - `https://YOUR-SERVICE.onrender.com` — zamień `YOUR-SERVICE` na faktyczny adres usługi Render.
@@ -46,7 +46,41 @@ Frontend jest statyczny i korzysta z katalogu głównego repozytorium. Przygotow
    - `https://YOUR-SERVICE.onrender.com/api/health`
    - `https://jak-sie-zjawie.pages.dev`
 
-`build_pages.sh` generuje ignorowany plik `config.js`, więc `API_BASE` jest wstrzyknięty w statyczny frontend bez sekretów. Na wdrożeniu Pages `app.js` używa tej wartości i wysyła `/api/auth/*` do Render z `credentials: include`. Render dla żądań z innej domeny ustawia cookie `SameSite=None; Secure`; CORS dopuszcza tylko origins z `SKM_ALLOWED_ORIGINS`. Lokalnie można skopiować `config.example.js` do `config.js`, ale do zwykłego podglądu 4173 działa automatyczny fallback na `http://127.0.0.1:8000`.
+### Automatyczne wdrażanie po zmianach
+
+Po połączeniu repozytorium z Cloudflare Pages każdy push do skonfigurowanej gałęzi produkcyjnej `main` uruchamia automatyczny build `./build_pages.sh` i nowy deploy Pages. Pull requesty mogą tworzyć preview deployments, zależnie od ustawień projektu.
+
+Render Web Service również może automatycznie wdrażać push do połączonej gałęzi (zwykle `main`), jeśli w ustawieniach usługi jest włączone **Auto-Deploy**. Zmiany w `server.py`, `render.yaml` lub backendowych zmiennych wymagają nowego deployu Render; zmiana samego frontendu wymaga deployu Pages. Po zmianie `SKM_ALLOWED_ORIGINS` wykonaj redeploy/restart Render, aby proces wczytał nową wartość.
+
+`build_pages.sh` generuje `config.js` i sprawdza, że `index.html`, `styles.css`, `app.js` oraz `functions/` istnieją przed publikacją. Bez uruchomionego builda repo zawiera bezpieczny `config.js` same-origin, więc brak zmiennej `API_BASE` nie wyłącza JavaScript. Na wariancie Pages + Render `app.js` wysyła `/api/auth/*` do Render z `credentials: include`; na wariancie Pages Functions pozostaw `API_BASE` puste.
+
+## Alternatywna migracja auth: Cloudflare Pages Functions + Supabase
+
+Render pozostaje działającą ścieżką i nie jest usuwany. Nowa ścieżka zachowuje ten sam kontrakt frontendowy (`/api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`), ale endpointy obsługują Pages Functions, a użytkowników i sesje obsługuje Supabase Auth/Postgres. Hasła nie przechodzą przez własną bazę ani nie są zapisywane w repozytorium.
+
+1. W Supabase utwórz projekt, skopiuj **Project URL** i publiczny **anon key** z ustawień API.
+2. W Authentication → URL Configuration dodaj:
+   - `https://TWOJ-PROJEKT.pages.dev`
+   - lokalnie `http://localhost:8788` (dla `wrangler pages dev`)
+3. W Cloudflare Pages ustaw build:
+   - **Build command:** `./build_pages.sh`
+   - **Output directory:** `.`
+   - **Production branch:** `main`
+4. W Pages → Settings → Environment variables dodaj jako **encrypted runtime variables** dla Preview i Production:
+   - `SUPABASE_URL=https://YOUR-PROJECT.supabase.co`
+   - `SUPABASE_ANON_KEY=...`
+   Nie używaj `service_role` key w Functions ani w frontendzie.
+   Dla tej ścieżki Supabase pozostaw `API_BASE` puste/nieustawione — wtedy frontend korzysta z Pages Functions na tym samym originie. `API_BASE=https://...onrender.com` dotyczy wyłącznie wariantu Pages + istniejący Render.
+5. Wypchnij commit do `main`. Użyj Cloudflare Pages z połączeniem Git lub Wrangler Pages — nie zwykłego uploadu samych plików statycznych. Sprawdź w deploy logu, że katalog `functions/` został wykryty jako Pages Functions. Ustaw **Root directory `/`**, **Build command `sh ./build_pages.sh`**, **Build output directory `.`**. Nie ustawiaj outputu na `dist`, `public` ani `functions`: w tym projekcie root zawiera jednocześnie statyczny frontend i źródła Pages Functions.
+6. Przetestuj:
+   - `https://TWOJ-PROJEKT.pages.dev/api/health` — musi zwrócić `status: "ok"`, nie samo 200 z hosta statycznego
+   - rejestrację, potwierdzenie e-maila (jeśli włączone w Supabase), logowanie i wylogowanie.
+
+Tryb lokalny wymaga Wrangler (`npm install -g wrangler` lub `npx wrangler`) oraz pliku `.dev.vars` skopiowanego z `.dev.vars.example`. Uruchom `npx wrangler pages dev . --compatibility-date=2026-09-30`; `.dev.vars` jest ignorowany. Przy braku Wrangler nadal działa lokalny Render/Python przez `./start_server.sh`.
+
+Jeżeli `/api/health` zwraca 404, Pages wdrożyło tylko frontend statyczny albo projekt nie korzysta z Pages Functions. Sprawdź root directory `/`, połączenie Git/Pages Functions oraz redeploy po commitcie zawierającym `functions/`. Jeżeli zwraca 503 z `supabase_env_missing`, dodaj `SUPABASE_URL` i `SUPABASE_ANON_KEY` jako **runtime variables** w Production i wykonaj redeploy. Jeżeli zwraca `supabase_timeout`/`supabase_unreachable`, sprawdź Project URL, anon key i status Supabase. To są rozstrzygające diagnostyki — nie trzeba zgadywać po samym spinnerze.
+
+Cookies Supabase sesji są ustawiane przez Functions jako `HttpOnly; SameSite=None; Secure`, a requesty frontendowe używają `credentials: include`. Ponieważ API i UI są na tym samym originie Pages, nie jest potrzebny publiczny CORS. Nie wkładaj sekretów do `wrangler.toml`, `config.js`, GitHub ani repozytorium.
 
 Cloudflare Pages nie wykonuje deployu z tego środowiska, bo wymaga dostępu do konta Cloudflare/GitHub. Jedyny ręczny krok: podłącz repozytorium w Pages, ustaw powyższe wartości i po poznaniu domeny Pages wpisz ją do `SKM_ALLOWED_ORIGINS` w Render.
 

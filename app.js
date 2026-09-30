@@ -130,6 +130,11 @@ function setAuthError(message) {
   $("#auth-error").classList.toggle("hidden", !message);
 }
 
+function setAuthProgress(message) {
+  $("#auth-progress").textContent = message || "";
+  $("#auth-progress").classList.toggle("hidden", !message);
+}
+
 function setAuthMode(mode) {
   authMode = mode;
   const registering = mode === "register";
@@ -142,6 +147,7 @@ function setAuthMode(mode) {
   $("#auth-confirm").required = registering;
   $("#register-tab").classList.toggle("active", registering);
   $("#login-tab").classList.toggle("active", !registering);
+  setAuthProgress("");
   setAuthError("");
 }
 
@@ -152,6 +158,7 @@ function openAuth() {
 
 function closeAuth() {
   $("#auth-backdrop").classList.add("hidden");
+  setAuthProgress("");
   setAuthError("");
 }
 
@@ -161,20 +168,26 @@ function updateAccountButton() {
 }
 
 async function checkAuth() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
   try {
-    const response = await fetch(`${API_BASE}/api/auth/me`, { credentials: "include" });
+    const response = await fetch(`${API_BASE}/api/auth/me`, { credentials: "include", signal: controller.signal });
     if (!response.ok) return;
     const payload = await response.json();
     authUser = payload.user;
     updateAccountButton();
   } catch {
     // Statyczny podgląd bez backendu pozostaje użyteczny.
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
 async function submitAuth(event) {
   event.preventDefault();
+  if ($("#auth-submit").disabled) return;
   setAuthError("");
+  setAuthProgress("");
   const form = event.currentTarget;
   if (!form.reportValidity()) return;
   const password = $("#auth-password").value;
@@ -187,6 +200,11 @@ async function submitAuth(event) {
     ...(authMode === "register" ? { username: $("#auth-username").value.trim(), confirmPassword: $("#auth-confirm").value } : {})
   };
   const submit = $("#auth-submit");
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
+  const coldStartId = setTimeout(() => {
+    setAuthProgress("Backend się wybudza — to może potrwać do minuty.");
+  }, 2500);
   submit.disabled = true;
   submit.textContent = "Przetwarzam…";
   try {
@@ -194,10 +212,14 @@ async function submitAuth(event) {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
+    if (!response.ok || !result.user) {
+      if (response.status === 404) {
+        return setAuthError("Endpoint logowania nie istnieje. W Cloudflare Pages włącz Pages Functions i wdroż katalog `functions/`, nie tylko statyczny output.");
+      }
       return setAuthError(result.error || "Nie udało się przetworzyć formularza.");
     }
     authUser = result.user;
@@ -205,8 +227,13 @@ async function submitAuth(event) {
     closeAuth();
     form.reset();
   } catch {
-    setAuthError("Backend konta jest niedostępny. Uruchom `./start_server.sh`, otwórz http://127.0.0.1:8000 i spróbuj ponownie.");
+    setAuthError(controller.signal.aborted
+      ? "Backend nie odpowiedział w ciągu 20 sekund. Render może się wybudzać — spróbuj ponownie za chwilę."
+      : `Backend konta jest niedostępny (${API_BASE || "ten sam origin"}). Sprawdź /api/health i konfigurację Functions/Supabase.`);
   } finally {
+    clearTimeout(timeoutId);
+    clearTimeout(coldStartId);
+    setAuthProgress("");
     submit.disabled = false;
     submit.textContent = authMode === "register" ? "Utwórz konto" : "Zaloguj się";
   }

@@ -1,0 +1,6 @@
+name = "jak-sie-zjawie"
+compatibility_date = "2026-09-30"
+pages_build_output_dir = "."
+
+# Configure SUPABASE_URL and SUPABASE_ANON_KEY as encrypted variables in
+# Cloudflare Pages, or in the ignored `.dev.vars` file for local Wrangler.
