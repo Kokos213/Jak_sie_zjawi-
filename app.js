@@ -124,6 +124,8 @@ function initTheme() {
 
 let authMode = "register";
 let authUser = null;
+let authRequestInFlight = false;
+let authCooldownTimer = null;
 
 function setAuthError(message) {
   $("#auth-error").textContent = message || "";
@@ -185,7 +187,7 @@ async function checkAuth() {
 
 async function submitAuth(event) {
   event.preventDefault();
-  if ($("#auth-submit").disabled) return;
+  if (authRequestInFlight || $("#auth-submit").disabled) return;
   setAuthError("");
   setAuthProgress("");
   const form = event.currentTarget;
@@ -200,6 +202,7 @@ async function submitAuth(event) {
     ...(authMode === "register" ? { username: $("#auth-username").value.trim(), confirmPassword: $("#auth-confirm").value } : {})
   };
   const submit = $("#auth-submit");
+  authRequestInFlight = true;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 20000);
   const coldStartId = setTimeout(() => {
@@ -220,6 +223,10 @@ async function submitAuth(event) {
       if (response.status === 404) {
         return setAuthError("Endpoint logowania nie istnieje. W Cloudflare Pages włącz Pages Functions i wdroż katalog `functions/`, nie tylko statyczny output.");
       }
+      if (response.status === 429) {
+        startAuthCooldown(Number(result.retryAfterSeconds) || Number(response.headers.get("retry-after")) || 60);
+        return;
+      }
       const fieldError = result.fields && Object.values(result.fields)[0];
       return setAuthError(fieldError || result.error || "Nie udało się przetworzyć formularza.");
     }
@@ -235,9 +242,30 @@ async function submitAuth(event) {
     clearTimeout(timeoutId);
     clearTimeout(coldStartId);
     setAuthProgress("");
-    submit.disabled = false;
+    authRequestInFlight = false;
+    if (!authCooldownTimer) submit.disabled = false;
     submit.textContent = authMode === "register" ? "Utwórz konto" : "Zaloguj się";
   }
+}
+
+function startAuthCooldown(seconds) {
+  clearInterval(authCooldownTimer);
+  let remaining = Math.max(1, Math.ceil(seconds));
+  const submit = $("#auth-submit");
+  submit.disabled = true;
+  const tick = () => {
+    setAuthError(`Zbyt wiele prób. Odczekaj ${remaining} s przed kolejną próbą. Nie ponawiam automatycznie.`);
+    if (remaining <= 0) {
+      clearInterval(authCooldownTimer);
+      authCooldownTimer = null;
+      submit.disabled = false;
+      setAuthError("Możesz spróbować ponownie. Jeśli limit wraca, sprawdź limity e-mail w Supabase.");
+      return;
+    }
+    remaining -= 1;
+  };
+  tick();
+  authCooldownTimer = setInterval(tick, 1000);
 }
 
 function initAuth() {

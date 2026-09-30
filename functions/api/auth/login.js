@@ -1,4 +1,4 @@
-import { authCookies, errorMessage, json, publicUser, readPayload, statusForAuthError, supabase } from "../_auth.js";
+import { authCookies, errorMessage, json, publicUser, rateLimitResponse, readPayload, statusForAuthError, supabase } from "../_auth.js";
 
 export async function onRequestPost(context) {
   const payload = await readPayload(context);
@@ -10,6 +10,7 @@ export async function onRequestPost(context) {
       method: "POST",
       body: JSON.stringify({ email, password })
     });
+    if (response.status === 429) return rateLimitResponse(response);
     if (!response.ok || !body.user || !body.access_token) {
       return json({ error: errorMessage("login", response.status, body) }, statusForAuthError("login", response.status));
     }

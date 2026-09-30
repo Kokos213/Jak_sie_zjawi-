@@ -92,6 +92,8 @@ curl -i -X POST "https://TWOJ-PROJEKT.pages.dev/api/auth/login" \
 
 Oczekiwane zachowanie to szybka odpowiedź JSON `401` z komunikatem `Nieprawidłowy e-mail lub hasło.`. `404` oznacza brak Functions, `503` oznacza problem runtime/env/Supabase, a zawieszenie ponad 20 sekund oznacza problem sieciowy — frontend przerwie je komunikatem timeoutu. Przy rejestracji z włączonym potwierdzeniem e-mail Supabase zwraca `201` z komunikatem o sprawdzeniu skrzynki; to nie jest błąd. Dla `email_not_confirmed` logowanie pokazuje osobny komunikat o aktywacji e-maila.
 
+Jeśli endpoint zwróci `429`, jest to limit Supabase Auth (rejestracja, logowanie lub wysyłka potwierdzenia), a nie mechanizm do obejścia po stronie klienta. Frontend blokuje kolejne wysłanie, pokazuje odliczanie na podstawie `Retry-After` i nie ponawia żądania automatycznie. Odczekaj liczbę sekund z komunikatu (gdy Supabase nie poda wartości, przyjmowane jest 60 s). W Supabase sprawdź **Authentication → Rate Limits** oraz ustawienia dostawcy e-mail/SMTP; limity mogą zależeć od planu i adresu IP. Sprawdź też DevTools → Network, czy dla jednej próby istnieje dokładnie jedno `POST /api/auth/login` lub `/register`.
+
 Cookies Supabase sesji są ustawiane przez Functions jako `HttpOnly; SameSite=None; Secure`, a requesty frontendowe używają `credentials: include`. Ponieważ API i UI są na tym samym originie Pages, nie jest potrzebny publiczny CORS. Nie wkładaj sekretów do `wrangler.toml`, `config.js`, GitHub ani repozytorium.
 
 Cloudflare Pages nie wykonuje deployu z tego środowiska, bo wymaga dostępu do konta Cloudflare/GitHub. Jedyny ręczny krok: podłącz repozytorium w Pages, ustaw powyższe wartości i po poznaniu domeny Pages wpisz ją do `SKM_ALLOWED_ORIGINS` w Render.

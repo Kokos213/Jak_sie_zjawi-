@@ -112,4 +112,18 @@ function statusForAuthError(operation, status) {
   return operation === "login" ? 401 : 422;
 }
 
-export { ACCESS_COOKIE, REFRESH_COOKIE, authCookies, clearCookies, cookie, env, errorMessage, json, publicUser, readPayload, statusForAuthError, supabase };
+function retryAfterSeconds(response) {
+  const value = Number(response.headers.get("retry-after"));
+  return Number.isFinite(value) && value > 0 ? Math.min(Math.ceil(value), 3600) : 60;
+}
+
+function rateLimitResponse(response) {
+  const seconds = retryAfterSeconds(response);
+  return json(
+    { error: `Zbyt wiele prób. Odczekaj około ${seconds} sekund i spróbuj ponownie.`, retryAfterSeconds: seconds },
+    429,
+    { "retry-after": String(seconds) }
+  );
+}
+
+export { ACCESS_COOKIE, REFRESH_COOKIE, authCookies, clearCookies, cookie, env, errorMessage, json, publicUser, readPayload, rateLimitResponse, statusForAuthError, supabase };
