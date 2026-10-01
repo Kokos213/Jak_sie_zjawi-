@@ -430,16 +430,20 @@ function updateNextTrainCard(originName, destinationName, firstDeparture) {
 }
 
 function renderDeparturesRows(rows) {
-  $("#departures-body").innerHTML = rows.map(([destination, platform, minutes, delayMinutes]) => {
+  const busMode = state.transportMode === "bus";
+  $("#line-column").classList.toggle("hidden", !busMode);
+  $("#departures-body").innerHTML = rows.map((row) => {
+    const [line, destination, platform, minutes, delayMinutes] = busMode ? row : [null, ...row];
     const isDelayed = delayMinutes > 0;
     const departureTime = formatTime(new Date(Date.now() + minutes * 60000));
-    return `<tr><td><div class="train-destination"><span class="route-icon" aria-hidden="true">→</span>${destination}</div></td><td class="platform">${platform}</td><td><span class="departure-time">${departureTime}</span></td><td><span class="status ${isDelayed ? "delayed" : "on-time"}">${isDelayed ? `+${delayMinutes} min` : "Na czas"}</span></td></tr>`;
+    return `<tr>${busMode ? `<td class="line-number">${line}</td>` : ""}<td><div class="train-destination"><span class="route-icon" aria-hidden="true">→</span>${destination}</div></td><td class="platform">${platform}</td><td><span class="departure-time">${departureTime}</span></td><td><span class="status ${isDelayed ? "delayed" : "on-time"}">${isDelayed ? `+${delayMinutes} min` : "Na czas"}</span></td></tr>`;
   }).join("");
 }
 
-function generatedTransportRows(originId, destinationName, count = 12) {
+function generatedBusRows(originId, destinationName, count = 12) {
   const seed = [...originId].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  return Array.from({ length: count }, (_, index) => [destinationName, String((seed + index) % 5 + 1), 3 + index * 6 + seed % 3, index % 5 === 2 ? 2 : 0]);
+  const lines = ["127", "N1", "171", "K", "R"];
+  return Array.from({ length: count }, (_, index) => [lines[(seed + index) % lines.length], destinationName, String((seed + index) % 5 + 1), 3 + index * 6 + seed % 3, index % 5 === 2 ? 2 : 0]);
 }
 
 function populateBusPickers() {
@@ -582,7 +586,7 @@ async function loadBusDepartures() {
     if (same) { setDeparturesState("empty"); return; }
     setDeparturesState("loading");
     await new Promise((resolve) => setTimeout(resolve, 180));
-    renderDeparturesRows(generatedTransportRows(state.busOriginStop, destination.name, 10));
+    renderDeparturesRows(generatedBusRows(state.busOriginStop, destination.name, 10));
     setDeparturesState("ready");
     $("#show-later-button").classList.add("hidden");
 }
@@ -610,16 +614,31 @@ function setTransportMode(mode) {
 }
 
 async function loadLeaderboard() {
-    if (!authUser) { $("#leaderboard").innerHTML = ""; return; }
+    $("#leaderboard-loading").classList.toggle("hidden", !authUser);
+    $("#leaderboard-error").classList.add("hidden");
+    $("#leaderboard-login").classList.toggle("hidden", !!authUser);
+    $("#leaderboard").classList.add("hidden");
+    $("#leaderboard-empty").classList.add("hidden");
+    if (!authUser) return;
     try {
       const response = await fetch(`${API_BASE}/api/checkins/today`, { credentials: "include" });
-      if (!response.ok) return;
+      if (!response.ok) throw new Error("leaderboard request failed");
       const data = await response.json();
       $("#checkin-status").textContent = data.checkedIn ? `Obecność zgłoszona. Pass: ${data.streak} dni.` : `Twój pass: ${data.streak} dni.`;
       $("#checkin-button").disabled = data.checkedIn;
       $("#checkin-button").textContent = data.checkedIn ? "Obecność zgłoszona" : "Zgłoś obecność";
-      $("#leaderboard").innerHTML = (data.top || []).map((item) => `<li><strong>${item.username}</strong> — ${item.streak} dni</li>`).join("");
-    } catch { /* optional widget */ }
+      const rows = Array.isArray(data.top) ? data.top : [];
+      if (!rows.length) {
+        $("#leaderboard-empty").classList.remove("hidden");
+      } else {
+        $("#leaderboard-body").innerHTML = rows.map((item, index) => `<tr><td>${index + 1}</td><td>${item.username}</td><td>${item.streak} dni</td></tr>`).join("");
+        $("#leaderboard").classList.remove("hidden");
+      }
+    } catch {
+      $("#leaderboard-error").classList.remove("hidden");
+    } finally {
+      $("#leaderboard-loading").classList.add("hidden");
+    }
 }
 
 async function checkIn() {
