@@ -327,6 +327,7 @@ function initAuth() {
     await fetch(`${API_BASE}/api/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
     authUser = null;
     updateAccountButton();
+    loadLeaderboard();
   });
   $("#auth-close").addEventListener("click", closeAuth);
   $("#auth-backdrop").addEventListener("click", (event) => {
@@ -338,6 +339,7 @@ function initAuth() {
   setAuthMode("register");
   const remaining = getAuthCooldownRemaining();
   if (remaining > 0) startAuthCooldown(remaining);
+  loadLeaderboard();
   checkAuth();
   $("#checkin-button").addEventListener("click", checkIn);
 }
@@ -629,19 +631,40 @@ async function loadLeaderboard() {
     $("#leaderboard-login").classList.toggle("hidden", !!authUser);
     $("#leaderboard").classList.add("hidden");
     $("#leaderboard-empty").classList.add("hidden");
-    if (!authUser) return;
+    if (!authUser) {
+      $("#leaderboard-login").textContent = "Zaloguj się, aby zobaczyć TOP 10.";
+      return;
+    }
     try {
       const response = await fetch(`${API_BASE}/api/checkins/today`, { credentials: "include" });
       const data = await response.json();
+      if (response.status === 401) {
+        authUser = null;
+        updateAccountButton();
+        $("#leaderboard").classList.add("hidden");
+        $("#leaderboard-empty").classList.add("hidden");
+        $("#leaderboard-error").classList.add("hidden");
+        $("#leaderboard-login").classList.remove("hidden");
+        $("#leaderboard-login").textContent = "Zaloguj się, aby zobaczyć TOP 10.";
+        return;
+      }
       if (!response.ok) throw new Error(data.error || "Nie udało się pobrać rankingu.");
       $("#checkin-status").textContent = data.checkedIn ? `Obecność zgłoszona. Pass: ${data.streak} dni.` : `Twój pass: ${data.streak} dni.`;
       $("#checkin-button").disabled = data.checkedIn;
       $("#checkin-button").textContent = data.checkedIn ? "Obecność zgłoszona" : "Zgłoś obecność";
-      const rows = Array.isArray(data.top) ? data.top : [];
-      if (!rows.length) {
+      const rows = Array.isArray(data.leaderboard) ? data.leaderboard : data.top;
+      const safeRows = Array.isArray(rows) ? rows.slice(0, 10) : [];
+      if (!safeRows.length) {
         $("#leaderboard-empty").classList.remove("hidden");
       } else {
-        $("#leaderboard-body").innerHTML = rows.map((item, index) => `<tr><td>${index + 1}</td><td>${item.username}</td><td>${item.streak} dni</td></tr>`).join("");
+        $("#leaderboard-body").textContent = "";
+        safeRows.forEach((item, index) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `<td>${index + 1}</td><td></td><td>${Number(item.streak) || 0} dni</td>`;
+          row.children[1].textContent = typeof item.username === "string" && !item.username.includes("@")
+            ? item.username : "użytkownik";
+          $("#leaderboard-body").appendChild(row);
+        });
         $("#leaderboard").classList.remove("hidden");
       }
     } catch {

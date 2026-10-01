@@ -9,12 +9,21 @@ function dateInWarsaw(date = new Date()) {
 }
 
 async function currentUser(context) {
-  const token = cookie(context.request, ACCESS_COOKIE);
+  const authorization = context.request.headers.get("authorization") || "";
+  const bearer = authorization.match(/^Bearer\s+(\S+)$/i)?.[1] || "";
+  const token = bearer || cookie(context.request, ACCESS_COOKIE);
   if (!token) return null;
   const { response, body } = await supabase(context, "/auth/v1/user", {
     headers: { authorization: `Bearer ${token}` }
   });
   return response.ok ? { user: body, token } : null;
+}
+
+function rankingUsername(row) {
+  const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+  const username = typeof profile?.username === "string" ? profile.username.trim() : "";
+  // Never use an email address as a public ranking label.
+  return username && !username.includes("@") ? username : "użytkownik";
 }
 
 async function query(context, token, path, options = {}) {
@@ -38,17 +47,30 @@ function previousWarsawDate() {
 export async function onRequestGet(context) {
   try {
     const session = await currentUser(context);
-    if (!session) return json({ error: "Zaloguj się, aby zobaczyć ranking." }, 401);
+    if (!session) {
+      return json({
+        error: "Zaloguj się, aby zobaczyć ranking.",
+        checkedIn: false,
+        streak: 0,
+        top: [],
+        leaderboard: []
+      }, 401);
+    }
     const date = dateInWarsaw();
     const { body: rows } = await query(context, session.token,
       `daily_checkins?select=streak,profiles(username)&checkin_date=eq.${date}&order=streak.desc,created_at.asc&limit=10`);
     const { body: mine } = await query(context, session.token,
       `daily_checkins?select=streak&user_id=eq.${encodeURIComponent(session.user.id)}&checkin_date=eq.${date}&limit=1`);
     if (!Array.isArray(rows) || !Array.isArray(mine)) return json({ error: "Nie udało się pobrać rankingu." }, 503);
+    const leaderboard = rows.slice(0, 10).map((row) => ({
+      username: rankingUsername(row),
+      streak: Number.isFinite(Number(row.streak)) ? Number(row.streak) : 0
+    }));
     return json({
       checkedIn: mine.length > 0,
       streak: mine[0]?.streak || 0,
-      top: rows.map((row) => ({ username: row.profiles?.username || "użytkownik", streak: row.streak }))
+      top: leaderboard,
+      leaderboard
     });
   } catch {
     return json({ error: "Nie udało się pobrać rankingu. Spróbuj ponownie." }, 503);
