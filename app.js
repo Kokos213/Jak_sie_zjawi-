@@ -364,6 +364,16 @@ function buildGeneratedDepartures(stationId) {
   });
 }
 
+function generatedTrainRows(originId, destinationName, count = 8) {
+  const seed = [...originId].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return Array.from({ length: count }, (_, index) => [
+    destinationName,
+    String((seed + index) % 4 + 1),
+    6 + index * 8 + seed % 3,
+    index % 4 === 2 ? 2 : 0
+  ]);
+}
+
 const skmService = {
   async getDepartures(originCityId, originStationId, destinationStationId) {
     await new Promise((resolve) => setTimeout(resolve, 160));
@@ -374,7 +384,7 @@ const skmService = {
     const baseRows = DEMO_DEPARTURES[originStationId] ?? buildGeneratedDepartures(originStationId);
     const destination = getStationById(destinationStationId).stationName;
     const rows = baseRows.map(([, platform, minutes, delayMinutes]) => [destination, platform, minutes, delayMinutes]);
-    return rows.concat(generatedTransportRows(originStationId, destination, 8));
+    return rows.concat(generatedTrainRows(originStationId, destination, 8));
   }
 };
 
@@ -442,7 +452,7 @@ function renderDeparturesRows(rows) {
 
 function generatedBusRows(originId, destinationName, count = 12) {
   const seed = [...originId].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  const lines = ["127", "N1", "171", "K", "R"];
+  const lines = ["127", "N1", "171", "K", "R", "J"];
   return Array.from({ length: count }, (_, index) => [lines[(seed + index) % lines.length], destinationName, String((seed + index) % 5 + 1), 3 + index * 6 + seed % 3, index % 5 === 2 ? 2 : 0]);
 }
 
@@ -622,8 +632,8 @@ async function loadLeaderboard() {
     if (!authUser) return;
     try {
       const response = await fetch(`${API_BASE}/api/checkins/today`, { credentials: "include" });
-      if (!response.ok) throw new Error("leaderboard request failed");
       const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Nie udało się pobrać rankingu.");
       $("#checkin-status").textContent = data.checkedIn ? `Obecność zgłoszona. Pass: ${data.streak} dni.` : `Twój pass: ${data.streak} dni.`;
       $("#checkin-button").disabled = data.checkedIn;
       $("#checkin-button").textContent = data.checkedIn ? "Obecność zgłoszona" : "Zgłoś obecność";
@@ -635,6 +645,7 @@ async function loadLeaderboard() {
         $("#leaderboard").classList.remove("hidden");
       }
     } catch {
+      $("#leaderboard-error").textContent = "Nie udało się pobrać rankingu. Spróbuj ponownie.";
       $("#leaderboard-error").classList.remove("hidden");
     } finally {
       $("#leaderboard-loading").classList.add("hidden");
