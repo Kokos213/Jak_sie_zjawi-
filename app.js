@@ -677,7 +677,7 @@ async function loadLeaderboard() {
 
 async function checkIn() {
     if (!authUser) return $("#checkin-status").textContent = "Zaloguj się, aby zgłosić obecność.";
-    const response = await fetch(`${API_BASE}/api/checkins`, { method: "POST", credentials: "include" });
+    const response = await fetch(`${API_BASE}/api/checkins/today`, { method: "POST", credentials: "include" });
     const data = await response.json().catch(() => ({}));
     $("#checkin-status").textContent = response.status === 409 ? "Obecność na dziś jest już zgłoszona." : (data.message || data.error || "Nie udało się zgłosić obecności.");
     await loadLeaderboard();
