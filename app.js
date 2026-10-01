@@ -603,6 +603,7 @@ function setTransportMode(mode) {
     $("#buses-tab").classList.toggle("active", bus);
     $("#train-pickers").classList.toggle("hidden", bus);
     $("#bus-pickers").classList.toggle("hidden", !bus);
+    $("#bus-pickers").setAttribute("aria-hidden", String(!bus));
     $("#departures-title").textContent = bus ? "Nadjeżdżające autobusy" : "Nadjeżdżające pociągi";
     $("#transport-notice").querySelector("span:last-child").textContent = bus ? "Brak bezpośredniego połączenia z przewoźnikiem — pokazujemy orientacyjne dane testowe." : "Godziny odjazdów są orientacyjne. Po podłączeniu danych przewoźnika pojawią się aktualne informacje.";
     loadDepartures();
