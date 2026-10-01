@@ -20,8 +20,7 @@ async function currentUser(context) {
 }
 
 function rankingUsername(row) {
-  const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
-  const username = typeof profile?.username === "string" ? profile.username.trim() : "";
+  const username = typeof row.username === "string" ? row.username.trim() : "";
   // Never use an email address as a public ranking label.
   return username && !username.includes("@") ? username : "użytkownik";
 }
@@ -57,13 +56,24 @@ export async function onRequestGet(context) {
       }, 401);
     }
     const date = dateInWarsaw();
-    const { body: rows } = await query(context, session.token,
-      `daily_checkins?select=streak,profiles(username)&checkin_date=eq.${date}&order=streak.desc,created_at.asc&limit=10`);
+    const { response: rowsResponse, body: rows } = await query(context, session.token,
+      `daily_checkins?select=user_id,streak&checkin_date=eq.${date}&order=streak.desc,created_at.asc&limit=10`);
     const { body: mine } = await query(context, session.token,
       `daily_checkins?select=streak&user_id=eq.${encodeURIComponent(session.user.id)}&checkin_date=eq.${date}&limit=1`);
-    if (!Array.isArray(rows) || !Array.isArray(mine)) return json({ error: "Nie udało się pobrać rankingu." }, 503);
+    if (!rowsResponse.ok || !Array.isArray(rows) || !Array.isArray(mine)) {
+      return json({ error: "Nie udało się pobrać rankingu. Sprawdź, czy migracja check-inów została wykonana w Supabase." }, 503);
+    }
+    const userIds = rows.map((row) => row.user_id).filter(Boolean);
+    const profileQuery = userIds.length
+      ? `profiles?select=id,username&id=in.(${userIds.join(",")})`
+      : "profiles?select=id,username&id=eq.__empty__";
+    const { response: profilesResponse, body: profiles } = await query(context, session.token, profileQuery);
+    if (!profilesResponse.ok || !Array.isArray(profiles)) {
+      return json({ error: "Nie udało się pobrać nazw rankingu. Sprawdź tabelę profiles w Supabase." }, 503);
+    }
+    const usernames = new Map(profiles.map((profile) => [profile.id, profile.username]));
     const leaderboard = rows.slice(0, 10).map((row) => ({
-      username: rankingUsername(row),
+      username: rankingUsername({ username: usernames.get(row.user_id) }),
       streak: Number.isFinite(Number(row.streak)) ? Number(row.streak) : 0
     }));
     return json({
