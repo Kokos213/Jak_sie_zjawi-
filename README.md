@@ -110,6 +110,14 @@ W Supabase otwórz **SQL Editor**, wklej i wykonaj cały plik `supabase/migratio
 
 Cloudflare Pages nie wykonuje deployu z tego środowiska, bo wymaga dostępu do konta Cloudflare/GitHub. Jedyny ręczny krok: podłącz repozytorium w Pages, ustaw powyższe wartości i po poznaniu domeny Pages wpisz ją do `SKM_ALLOWED_ORIGINS` w Render.
 
+Jeżeli publiczny HTML nadal zawiera stary `app.js?v=...` mimo nowego SHA na `main`, Auto-Deploy/Git integration wskazuje inny projekt lub branch. Wykonaj jeden bezpośredni deploy z katalogu repo:
+
+```bash
+./deploy_pages.sh
+```
+
+Skrypt buduje `dist/` i wywołuje `npx wrangler pages deploy dist --project-name jak-sie-zjawi`; Wrangler otworzy logowanie Cloudflare, jeśli sesja nie jest zalogowana. Po sukcesie sprawdź, czy HTML `https://aac71cd1.jak-sie-zjawi.pages.dev/` ma query `app.js?v=...` odpowiadające nowemu deployowi oraz czy `/api/health` zwraca JSON `status: "ok"`. Jeśli nazwa projektu Cloudflare jest inna, zmień wyłącznie `--project-name`.
+
 ## Trwałość bazy
 
 Darmowy Render Web Service ma efemeryczny system plików: SQLite może zostać utracone przy redeployu, restarcie lub migracji instancji. To jest akceptowalne dla demonstratora, ale nie dla prawdziwych kont produkcyjnych.
