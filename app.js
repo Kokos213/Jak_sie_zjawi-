@@ -232,6 +232,8 @@ async function submitAuth(event) {
     password,
     ...(authMode === "register" ? { username: $("#auth-username").value.trim(), confirmPassword: $("#auth-confirm").value } : {})
   };
+  const endpoint = `${API_BASE || window.location.origin}/api/auth/${authMode}`;
+  setAuthProgress(`Diagnostyka: e-mail odczytany (${email.length} znaków), hasło odczytane (${password.length} znaków), endpoint ${endpoint}.`);
   const submit = $("#auth-submit");
   authRequestInFlight = true;
   const controller = new AbortController();
@@ -242,7 +244,7 @@ async function submitAuth(event) {
   submit.disabled = true;
   submit.textContent = "Przetwarzam…";
   try {
-    const response = await fetch(`${API_BASE}/api/auth/${authMode}`, {
+    const response = await fetch(endpoint, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -250,6 +252,7 @@ async function submitAuth(event) {
       signal: controller.signal
     });
     const result = await response.json().catch(() => ({}));
+    setAuthProgress(`Diagnostyka: odpowiedź HTTP ${response.status} z ${endpoint}.`);
     if (!response.ok || !result.user) {
       if (response.status === 404) {
         return setAuthError("Endpoint logowania nie istnieje. W Cloudflare Pages włącz Pages Functions i wdroż katalog `functions/`, nie tylko statyczny output.");
@@ -273,7 +276,6 @@ async function submitAuth(event) {
   } finally {
     clearTimeout(timeoutId);
     clearTimeout(coldStartId);
-    setAuthProgress("");
     authRequestInFlight = false;
     if (!authCooldownTimer) submit.disabled = false;
     submit.textContent = authMode === "register" ? "Utwórz konto" : "Zaloguj się";
