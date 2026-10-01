@@ -16,16 +16,20 @@ create table if not exists public.daily_checkins (
 alter table public.profiles enable row level security;
 alter table public.daily_checkins enable row level security;
 
+drop policy if exists "profiles readable for ranking" on public.profiles;
 create policy "profiles readable for ranking" on public.profiles for select to anon, authenticated using (true);
+drop policy if exists "checkins are readable for ranking" on public.daily_checkins;
 create policy "checkins are readable for ranking" on public.daily_checkins for select to anon, authenticated using (true);
+drop policy if exists "checkins inserted by owner" on public.daily_checkins;
 create policy "checkins inserted by owner" on public.daily_checkins for insert to authenticated with check (auth.uid() = user_id);
+create index if not exists daily_checkins_date_rank_idx on public.daily_checkins (checkin_date, streak desc, created_at);
 
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
   insert into public.profiles (id, username)
   values (new.id, coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)))
-  on conflict (id) do nothing;
+  on conflict do nothing;
   return new;
 end;
 $$;
@@ -37,4 +41,4 @@ for each row execute procedure public.handle_new_user();
 insert into public.profiles (id, username)
 select id, coalesce(raw_user_meta_data->>'username', split_part(email, '@', 1))
 from auth.users
-on conflict (id) do nothing;
+on conflict do nothing;

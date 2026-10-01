@@ -1,13 +1,19 @@
 import { ACCESS_COOKIE, cookie, env, json, supabase } from "./_auth.js";
 
-function todayWarsaw() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Warsaw", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const WARSAW = "Europe/Warsaw";
+
+function dateInWarsaw(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: WARSAW, year: "numeric", month: "2-digit", day: "2-digit"
+  }).format(date);
 }
 
 async function currentUser(context) {
   const token = cookie(context.request, ACCESS_COOKIE);
   if (!token) return null;
-  const { response, body } = await supabase(context, "/auth/v1/user", { headers: { authorization: `Bearer ${token}` } });
+  const { response, body } = await supabase(context, "/auth/v1/user", {
+    headers: { authorization: `Bearer ${token}` }
+  });
   return response.ok ? { user: body, token } : null;
 }
 
@@ -17,37 +23,58 @@ async function query(context, token, path, options = {}) {
   headers.set("apikey", values.SUPABASE_ANON_KEY);
   headers.set("authorization", `Bearer ${token}`);
   headers.set("content-type", "application/json");
-  const response = await fetch(`${values.SUPABASE_URL.replace(/\/$/, "")}/rest/v1/${path}`, { ...options, headers });
+  const response = await fetch(`${values.SUPABASE_URL.replace(/\/$/, "")}/rest/v1/${path}`, {
+    ...options, headers, signal: options.signal || AbortSignal.timeout(10000)
+  });
   return { response, body: await response.json().catch(() => []) };
 }
 
+function previousWarsawDate() {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - 1);
+  return dateInWarsaw(date);
+}
+
 export async function onRequestGet(context) {
-  const session = await currentUser(context);
-  if (!session) return json({ error: "Zaloguj się, aby zobaczyć ranking." }, 401);
-  const user = session.user;
-  const date = todayWarsaw();
-  const { body: rows } = await query(context, session.token, `daily_checkins?select=user_id,streak,profiles(username)&checkin_date=eq.${date}&order=streak.desc,created_at.asc&limit=10`);
-  const { body: mine } = await query(context, session.token, `daily_checkins?select=streak&user_id=eq.${encodeURIComponent(user.id)}&checkin_date=eq.${date}&limit=1`);
-  return json({ checkedIn: mine.length > 0, streak: mine[0]?.streak || 0, top: rows.map((row) => ({ username: row.profiles?.username || "użytkownik", streak: row.streak })) });
+  try {
+    const session = await currentUser(context);
+    if (!session) return json({ error: "Zaloguj się, aby zobaczyć ranking." }, 401);
+    const date = dateInWarsaw();
+    const { body: rows } = await query(context, session.token,
+      `daily_checkins?select=streak,profiles(username)&checkin_date=eq.${date}&order=streak.desc,created_at.asc&limit=10`);
+    const { body: mine } = await query(context, session.token,
+      `daily_checkins?select=streak&user_id=eq.${encodeURIComponent(session.user.id)}&checkin_date=eq.${date}&limit=1`);
+    if (!Array.isArray(rows) || !Array.isArray(mine)) return json({ error: "Nie udało się pobrać rankingu." }, 503);
+    return json({
+      checkedIn: mine.length > 0,
+      streak: mine[0]?.streak || 0,
+      top: rows.map((row) => ({ username: row.profiles?.username || "użytkownik", streak: row.streak }))
+    });
+  } catch {
+    return json({ error: "Nie udało się pobrać rankingu. Spróbuj ponownie." }, 503);
+  }
 }
 
 export async function onRequestPost(context) {
-  const session = await currentUser(context);
-  if (!session) return json({ error: "Zaloguj się, aby zgłosić obecność." }, 401);
-  const user = session.user;
-  const date = todayWarsaw();
-  const previousDate = new Date(`${date}T12:00:00+01:00`);
-  previousDate.setDate(previousDate.getDate() - 1);
-  const previous = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Warsaw" }).format(previousDate);
-  const { body: prior } = await query(context, session.token, `daily_checkins?select=streak&user_id=eq.${encodeURIComponent(user.id)}&checkin_date=eq.${previous}&limit=1`);
-  const streak = (prior[0]?.streak || 0) + 1;
-  const { response } = await query(context, session.token, "daily_checkins", {
-    method: "POST",
-    headers: { Prefer: "return=representation,resolution=ignore-duplicates" },
-    body: JSON.stringify({ user_id: user.id, checkin_date: date, streak })
-  });
-  const inserted = await response.clone().json().catch(() => []);
-  if (response.status === 409 || !inserted.length) return json({ error: "Obecność na dziś jest już zgłoszona." }, 409);
-  if (!response.ok) return json({ error: "Nie udało się zapisać obecności. Spróbuj ponownie." }, 503);
-  return json({ message: `Obecność zgłoszona. Pass: ${streak} dni.`, streak }, 201);
+  try {
+    const session = await currentUser(context);
+    if (!session) return json({ error: "Zaloguj się, aby zgłosić obecność." }, 401);
+    const date = dateInWarsaw();
+    const { body: prior } = await query(context, session.token,
+      `daily_checkins?select=streak&user_id=eq.${encodeURIComponent(session.user.id)}&checkin_date=eq.${previousWarsawDate()}&limit=1`);
+    if (!Array.isArray(prior)) return json({ error: "Nie udało się ustalić passu." }, 503);
+    const streak = (prior[0]?.streak || 0) + 1;
+    const { response, body } = await query(context, session.token, "daily_checkins", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ user_id: session.user.id, checkin_date: date, streak })
+    });
+    if (response.status === 409 || response.status === 23505 || (Array.isArray(body) && body.length === 0)) {
+      return json({ error: "Obecność na dziś jest już zgłoszona." }, 409);
+    }
+    if (!response.ok) return json({ error: "Nie udało się zapisać obecności. Spróbuj ponownie." }, response.status === 429 ? 429 : 503);
+    return json({ message: `Obecność zgłoszona. Pass: ${streak} dni.`, streak }, 201);
+  } catch {
+    return json({ error: "Nie udało się zapisać obecności. Spróbuj ponownie." }, 503);
+  }
 }
