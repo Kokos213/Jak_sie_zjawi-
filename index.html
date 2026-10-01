@@ -195,8 +195,8 @@
         </div>
         <form id="auth-form" novalidate>
           <label class="auth-field" id="username-field"><span>Nazwa użytkownika</span><input id="auth-username" name="username" autocomplete="username" minlength="3" maxlength="32" required /></label>
-          <label class="auth-field"><span>Adres e-mail</span><input id="auth-email" name="email" type="email" autocomplete="email" maxlength="254" required /></label>
-          <label class="auth-field"><span>Hasło</span><input id="auth-password" name="password" type="password" autocomplete="new-password" minlength="10" maxlength="128" required /></label>
+          <label class="auth-field"><span>Adres e-mail</span><input id="loginEmail" name="email" type="email" autocomplete="email" maxlength="254" required /></label>
+          <label class="auth-field"><span>Hasło</span><input id="loginPassword" name="password" type="password" autocomplete="current-password" minlength="6" maxlength="128" required /></label>
           <label class="auth-field" id="confirm-field"><span>Potwierdź hasło</span><input id="auth-confirm" name="confirmPassword" type="password" autocomplete="new-password" minlength="10" maxlength="128" required /></label>
           <p class="auth-progress hidden" id="auth-progress" role="status" aria-live="polite"></p>
           <p class="auth-error hidden" id="auth-error" role="alert"></p>

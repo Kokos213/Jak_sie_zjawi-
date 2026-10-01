@@ -158,6 +158,8 @@ function setAuthMode(mode) {
   $("#confirm-field").classList.toggle("hidden", !registering);
   $("#auth-username").required = registering;
   $("#auth-confirm").required = registering;
+  $("#loginEmail").autocomplete = "email";
+  $("#loginPassword").autocomplete = registering ? "new-password" : "current-password";
   $("#register-tab").classList.toggle("active", registering);
   $("#login-tab").classList.toggle("active", !registering);
   setAuthProgress("");
@@ -171,7 +173,7 @@ function setAuthMode(mode) {
 
 function openAuth() {
   $("#auth-backdrop").classList.remove("hidden");
-  $("#auth-email").focus();
+  $("#loginEmail").focus();
 }
 
 function closeAuth() {
@@ -213,13 +215,20 @@ async function submitAuth(event) {
   setAuthError("");
   setAuthProgress("");
   const form = event.currentTarget;
+  const email = $("#loginEmail").value.trim();
+  const password = $("#loginPassword").value;
+  if (!email) {
+    return setAuthError("Podaj adres e-mail.");
+  }
+  if (!password) {
+    return setAuthError("Podaj hasło.");
+  }
   if (!form.reportValidity()) return;
-  const password = $("#auth-password").value;
   if (authMode === "register" && password !== $("#auth-confirm").value) {
     return setAuthError("Hasła muszą być identyczne.");
   }
   const payload = {
-    email: $("#auth-email").value.trim(),
+    email,
     password,
     ...(authMode === "register" ? { username: $("#auth-username").value.trim(), confirmPassword: $("#auth-confirm").value } : {})
   };
