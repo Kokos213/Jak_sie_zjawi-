@@ -52,7 +52,7 @@ Po połączeniu repozytorium z Cloudflare Pages każdy push do skonfigurowanej g
 
 Render Web Service również może automatycznie wdrażać push do połączonej gałęzi (zwykle `main`), jeśli w ustawieniach usługi jest włączone **Auto-Deploy**. Zmiany w `server.py`, `render.yaml` lub backendowych zmiennych wymagają nowego deployu Render; zmiana samego frontendu wymaga deployu Pages. Po zmianie `SKM_ALLOWED_ORIGINS` wykonaj redeploy/restart Render, aby proces wczytał nową wartość.
 
-`build_pages.sh` tworzy `dist/` i kopiuje do niego wyłącznie `index.html`, `styles.css`, `app.js` oraz wygenerowany `config.js`; sprawdza też obecność `functions/`. `functions/` nie jest publikowany jako statyczny output — Pages Functions wykrywa go jako źródło routingu przy deployu przez Git integration/Wrangler. Na wariancie Pages + Render `app.js` wysyła `/api/auth/*` do Render z `credentials: include`; na wariancie Pages Functions pozostaw `API_BASE` puste.
+`build_pages.sh` tworzy `dist/` i kopiuje do niego wyłącznie `index.html`, `styles.css`, `app.js` oraz wygenerowany `config.js`; dodaje do assetów wersję `CF_PAGES_COMMIT_SHA` (lub SHA Git), aby przeglądarka nie używała starego `app.js`/CSS/config po deployu. Sprawdza też obecność `functions/` i pól `loginEmail`/`loginPassword`. `functions/` nie jest publikowany jako statyczny output — Pages Functions wykrywa go jako źródło routingu przy deployu przez Git integration/Wrangler. Na wariancie Pages + Render `app.js` wysyła `/api/auth/*` do Render z `credentials: include`; na wariancie Pages Functions pozostaw `API_BASE` puste.
 
 ## Alternatywna migracja auth: Cloudflare Pages Functions + Supabase
 
